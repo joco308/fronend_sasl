@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import BotonCTA from '@/components/atoms/BotonCTA'
+import BotonIniciarSesion from '@/components/molecules/BotonIniciarSesion'
 
 const enlaces = [
   { href: '#inicio',    etiqueta: 'Inicio' },
@@ -105,11 +106,13 @@ export default function Navbar() {
               </li>
             ))}
           </ul>
-
-          {/* CTA escritorio */}
-          <BotonCTA href="#contacto" className="hidden lg:inline-flex">
-            Atención al Cliente
-          </BotonCTA>
+          <div className='flex gap-3'>
+            <BotonIniciarSesion variante='contorno' tamaño='sm'/>
+            {/* CTA escritorio */}
+            <BotonCTA href="#contacto" className="hidden lg:inline-flex">
+              Atención al Cliente
+            </BotonCTA>
+          </div>
 
           {/* Botón hamburguesa */}
           <button
