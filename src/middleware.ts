@@ -1,50 +1,69 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-function getRoleFromToken(token: string) {
-  try {
-    const payload = JSON.parse(
-      Buffer.from(token.split('.')[1], 'base64').toString()
-    )
-    return payload.rol
-  } catch {
-    return null
-  }
-}
+// Mapa de rol → ruta base del portal
+const ROLE_REDIRECT: Record<string, string> = {
+  Admin:      '/admin',
+  Supervisor: '/gerente',   // supervisores usan el portal de gerencia
+  Limpieza:   '/usuario',   // personal de limpieza usa el portal de empleado
+  Gerente:    '/gerente',
+  Usuario:    '/usuario',
+  Cliente:    '/cliente',
+};
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('token')?.value
-  const { pathname } = request.nextUrl
+  const { pathname } = request.nextUrl;
 
-  if (pathname === '/login') {
-    if (token) {
-      const rol = getRoleFromToken(token)
-      return NextResponse.redirect(new URL(`/${rol}`, request.url))
+  // Leer session_token (cookie JSON, no JWT)
+  const sessionCookie = request.cookies.get('session_token');
+
+  // Si ya está autenticado y va al login, redirigir a su portal
+  if (pathname === '/login' || pathname === '/login/auth') {
+    if (sessionCookie?.value) {
+      try {
+        const session = JSON.parse(decodeURIComponent(sessionCookie.value));
+        const dest = ROLE_REDIRECT[session.rol] || '/login';
+        if (session.autenticado && pathname === '/login') {
+          return NextResponse.redirect(new URL(dest, request.url));
+        }
+      } catch { /* cookie inválida, dejar pasar */ }
     }
-    return NextResponse.next() 
+    return NextResponse.next();
   }
 
-  
-  if (!token) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Rutas protegidas: verificar sesión
+  if (!sessionCookie?.value) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  const rol = getRoleFromToken(token)
-
-  if (!pathname.startsWith(`/${rol}`)) {
-    return NextResponse.redirect(new URL(`/${rol}`, request.url))
+  let session: { rol: string; autenticado?: boolean };
+  try {
+    session = JSON.parse(decodeURIComponent(sessionCookie.value));
+  } catch {
+    const res = NextResponse.redirect(new URL('/login', request.url));
+    res.cookies.set('session_token', '', { maxAge: 0, path: '/' });
+    return res;
   }
 
-  return NextResponse.next()
+  if (!session.autenticado) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
+  const allowedBase = ROLE_REDIRECT[session.rol];
+  if (!allowedBase || !pathname.startsWith(allowedBase)) {
+    return NextResponse.redirect(new URL(allowedBase || '/login', request.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     '/admin/:path*',
     '/gerente/:path*',
-    '/trabajador/:path*',
+    '/usuario/:path*',
     '/cliente/:path*',
-    '/login/auth'
+    '/login',
+    '/login/auth',
   ],
-}
+};

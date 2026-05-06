@@ -1,15 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const ROLE_REDIRECT: Record<string, string> = {
-  Admin:      '/admin',
-  Supervisor: '/gerente',
-  Limpieza:   '/usuario',
-  Gerente:    '/gerente',
-  Usuario:    '/usuario',
-  Cliente:    '/cliente',
-};
-
 export async function POST(request: Request) {
   try {
     const { codigo } = await request.json();
@@ -19,24 +10,24 @@ export async function POST(request: Request) {
 
     if (!preAuthCookie?.value) {
       return NextResponse.json(
-        { success: false, message: 'Sesión expirada. Vuelva a iniciar sesión.' },
+        { success: false, mensaje: 'Sesión expirada. Vuelva a iniciar sesión.' },
         { status: 401 }
       );
     }
 
     if (codigo !== '123456') {
       return NextResponse.json(
-        { success: false, message: 'Código incorrecto. Intente nuevamente.' },
+        { success: false, mensaje: 'Código incorrecto. Intente nuevamente.' },
         { status: 401 }
       );
     }
 
-    let usuario: { correo: string; nombre: string; rol: string; id_rol: number };
+    let usuario: { correo: string; nombre: string; rol: string; id_rol: number; redirect: string };
     try {
       usuario = JSON.parse(decodeURIComponent(preAuthCookie.value));
     } catch {
       return NextResponse.json(
-        { success: false, message: 'Sesión inválida. Vuelva a iniciar sesión.' },
+        { success: false, mensaje: 'Sesión inválida. Vuelva a iniciar sesión.' },
         { status: 401 }
       );
     }
@@ -50,9 +41,7 @@ export async function POST(request: Request) {
       timestamp:   Date.now(),
     }));
 
-    const redirect = ROLE_REDIRECT[usuario.rol] || '/admin';
-
-    const response = NextResponse.json({ success: true, redirect });
+    const response = NextResponse.json({ success: true, redireccion: usuario.redirect });
     response.cookies.set('session_token', sessionData, {
       httpOnly: true, path: '/', maxAge: 3600, sameSite: 'lax',
     });
@@ -61,6 +50,6 @@ export async function POST(request: Request) {
     });
     return response;
   } catch {
-    return NextResponse.json({ success: false, message: 'Error interno.' }, { status: 500 });
+    return NextResponse.json({ success: false, mensaje: 'Error interno.' }, { status: 500 });
   }
 }
