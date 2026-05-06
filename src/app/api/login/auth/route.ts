@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// PASO 2 — Valida código 2FA y emite sesión definitiva
-// Redirige según el rol: Admin→/admin, Supervisor→/supervisor, Limpieza→/limpieza
+const ROLE_REDIRECT: Record<string, string> = {
+  Admin:   '/admin',
+  Gerente: '/gerente',
+  Usuario: '/usuario',
+  Cliente: '/cliente',
+};
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { codigo } = body;
+    const { codigo } = await request.json();
 
     const cookieStore = await cookies();
     const preAuthCookie = cookieStore.get('pre_auth_user');
@@ -18,8 +22,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Código fijo de prueba: 123456
-    // En producción: validar contra campo codigo2fa de tabla Usuario_trabajador
     if (codigo !== '123456') {
       return NextResponse.json(
         { success: false, message: 'Código incorrecto. Intente nuevamente.' },
@@ -46,30 +48,15 @@ export async function POST(request: Request) {
       timestamp:   Date.now(),
     }));
 
-    // Determinar ruta de destino según el rol
-    const rutaDestino: Record<string, string> = {
-      'Admin':      '/admin',
-      'Supervisor': '/supervisor',
-      'Limpieza':   '/limpieza',
-    };
-    const redirect = rutaDestino[usuario.rol] || '/admin';
+    const redirect = ROLE_REDIRECT[usuario.rol] || '/login';
 
-    const response = NextResponse.json({ success: true, rol: usuario.rol, redirect });
-
+    const response = NextResponse.json({ success: true, redirect });
     response.cookies.set('session_token', sessionData, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 3600,
-      sameSite: 'lax',
+      httpOnly: true, path: '/', maxAge: 3600, sameSite: 'lax',
     });
-
-    // Eliminar cookie temporal
     response.cookies.set('pre_auth_user', '', {
-      httpOnly: true,
-      path: '/',
-      maxAge: 0,
+      httpOnly: true, path: '/', maxAge: 0,
     });
-
     return response;
   } catch {
     return NextResponse.json({ success: false, message: 'Error interno.' }, { status: 500 });

@@ -1,17 +1,9 @@
 import { NextResponse } from 'next/server';
-
-// Usuarios que coinciden con la tabla Usuario_trabajador
-// En producción: reemplazar con consulta real a SQL Server
-const USUARIOS_BD = [
-  { correo: 'admin@sasl.bo',      contrasena: 'admin123',  id_rol: 3, nombre: 'María López',   rol: 'Admin' },
-  { correo: 'supervisor@sasl.bo', contrasena: 'super123',  id_rol: 1, nombre: 'Carlos Mamani', rol: 'Supervisor' },
-  { correo: 'limpieza@sasl.bo',   contrasena: 'limp123',   id_rol: 2, nombre: 'Ana Torres',    rol: 'Limpieza' },
-];
+import { USUARIOS } from '@/lib/userStore';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { correo, contrasena } = body;
+    const { correo, contrasena } = await request.json();
 
     if (!correo || !contrasena) {
       return NextResponse.json(
@@ -20,7 +12,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const usuario = USUARIOS_BD.find(
+    const usuario = USUARIOS.find(
       u => u.correo === correo && u.contrasena === contrasena
     );
 
@@ -40,12 +32,8 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({ success: true });
     response.cookies.set('pre_auth_user', preAuthData, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 300,
-      sameSite: 'lax',
+      httpOnly: true, path: '/', maxAge: 300, sameSite: 'lax',
     });
-
     return response;
   } catch {
     return NextResponse.json({ success: false, message: 'Error interno.' }, { status: 500 });
