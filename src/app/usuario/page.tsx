@@ -1,10 +1,12 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type Toast = { id: number; type: 'success' | 'error' | 'info' | 'warning'; msg: string };
 type NavId = 'inicio' | 'servicios' | 'horarios' | 'capacitaciones';
+type ServicioDB = { id_servicio: number; nombre_cliente: string | null; tipo_servicio: number; fecha_inicio: string; fecha_final: string | null; costo: number; descripcion: string | null };
+type HoraDB    = { id_horario: number; hora_entrada: string; hora_salida: string };
 
 const C = {
   bg: '#060d1a', bgCard: '#0a1628', sidebar: '#070f1d',
@@ -25,11 +27,8 @@ const HORARIOS_INIT = [
   { id: 3, turno: 'Turno Noche',  entrada: '22:00', salida: '06:00', dias: 'Lun – Vie', activo: false },
 ];
 
-const CAPACITACIONES_INIT = [
-  { id: 1, nombre: 'Manejo de Químicos',  descripcion: 'Uso seguro de productos de limpieza', fecha: '2026-03-10', completada: true,  certificado: true  },
-  { id: 2, nombre: 'Primeros Auxilios',   descripcion: 'Atención básica en emergencias',       fecha: '2026-04-05', completada: true,  certificado: false },
-  { id: 3, nombre: 'Protocolo Sanitario', descripcion: 'Medidas sanitarias vigentes',           fecha: '2026-05-01', completada: false, certificado: false },
-];
+type CapDB = { id_capacitacion: number; nombre: string; descripcion: string | null; fecha: string };
+type Cap   = { id: number; nombre: string; descripcion: string; fecha: string; completada: boolean; certificado: boolean };
 
 const NOTIFS_INIT = [
   { id: 1, tipo: 'info',    msg: 'Nuevo servicio asignado para el 30/04/2026 — Hotel Europa.',  fecha: '2026-04-28', leida: false },
@@ -82,17 +81,20 @@ const Badge = ({ text, color = 'blue' }: { text: string; color?: string }) => {
 const statusColor = (e: string) => e === 'Completado' ? 'green' : e === 'En curso' ? 'blue' : 'yellow';
 
 // ── Inicio ────────────────────────────────────────────────────────────────────
-function Inicio({ notifs, setNotifs, setActive }: {
+function Inicio({ notifs, setNotifs, setActive, caps, servicios, horarios }: {
   notifs: typeof NOTIFS_INIT;
   setNotifs: React.Dispatch<React.SetStateAction<typeof NOTIFS_INIT>>;
   setActive: (id: NavId) => void;
+  caps: Cap[];
+  servicios: ServicioDB[];
+  horarios: HoraDB[];
 }) {
-  const completados    = SERVICIOS_INIT.filter(s => s.estado === 'Completado').length;
-  const enCurso        = SERVICIOS_INIT.filter(s => s.estado === 'En curso').length;
-  const capCompletadas = CAPACITACIONES_INIT.filter(c => c.completada).length;
+  const activos        = servicios.filter(s => !s.fecha_final).length;
+  const terminados     = servicios.filter(s => !!s.fecha_final).length;
+  const capCompletadas = caps.filter(c => c.completada).length;
   const unread         = notifs.filter(n => !n.leida).length;
-  const turnoActual    = HORARIOS_INIT.find(h => h.activo);
-  const hoy            = SERVICIOS_INIT.find(s => s.fecha === '2026-04-29');
+  const turnoActual    = horarios[0] ?? null;
+  const hoy            = servicios[0] ?? null;
 
   return (
     <div>
@@ -106,12 +108,12 @@ function Inicio({ notifs, setNotifs, setActive }: {
       {hoy && (
         <div style={{ background: 'linear-gradient(135deg,rgba(0,48,102,.4),rgba(0,112,243,.2))', border: '1px solid rgba(0,112,243,.3)', borderRadius: 16, padding: '20px 24px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <p style={{ margin: '0 0 4px', color: '#60a5fa', fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>🔴 Servicio de hoy</p>
-            <p style={{ margin: '0 0 4px', color: C.text, fontWeight: 800, fontSize: 18 }}>{hoy.tipo} — {hoy.cliente}</p>
-            <p style={{ margin: 0, color: C.textSub, fontSize: 13 }}>⏰ {hoy.hora} · 📍 {hoy.ubicacion}</p>
+            <p style={{ margin: '0 0 4px', color: '#60a5fa', fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>🔵 Último servicio</p>
+            <p style={{ margin: '0 0 4px', color: C.text, fontWeight: 800, fontSize: 18 }}>Tipo #{hoy.tipo_servicio} — {hoy.nombre_cliente ?? 'Cliente'}</p>
+            <p style={{ margin: 0, color: C.textSub, fontSize: 13 }}>📅 {new Date(hoy.fecha_inicio).toLocaleDateString('es-BO')} · Bs {Number(hoy.costo).toLocaleString('es-BO')}</p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Badge text={hoy.estado} color={statusColor(hoy.estado)} />
+            <Badge text={hoy.fecha_final ? 'Finalizado' : 'En curso'} color={hoy.fecha_final ? 'blue' : 'green'} />
             <button onClick={() => setActive('servicios')} style={{ background: 'rgba(0,112,243,.15)', border: '1px solid rgba(0,112,243,.3)', color: '#60a5fa', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>Ver detalle →</button>
           </div>
         </div>
@@ -120,9 +122,9 @@ function Inicio({ notifs, setNotifs, setActive }: {
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 14, marginBottom: 24 }}>
         {[
-          { l: 'Completados', v: completados, c: '#4ade80', e: '✅' },
-          { l: 'En curso hoy', v: enCurso,    c: '#60a5fa', e: '🧹' },
-          { l: 'Capacitaciones', v: `${capCompletadas}/${CAPACITACIONES_INIT.length}`, c: '#a78bfa', e: '📚' },
+          { l: 'Terminados', v: terminados, c: '#4ade80', e: '✅' },
+          { l: 'En curso',   v: activos,   c: '#60a5fa', e: '🧹' },
+          { l: 'Capacitaciones', v: `${capCompletadas}/${caps.length}`, c: '#a78bfa', e: '📚' },
           { l: 'Avisos nuevos', v: unread,     c: '#facc15', e: '🔔' },
         ].map(({ l, v, c, e }) => (
           <div key={l} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14, padding: '18px 20px', position: 'relative', overflow: 'hidden', transition: 'all .2s', cursor: 'default' }}
@@ -141,9 +143,9 @@ function Inicio({ notifs, setNotifs, setActive }: {
           <p style={{ margin: '0 0 16px', color: C.textSub, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em' }}>🕐 Mi turno actual</p>
           {turnoActual ? (
             <>
-              <p style={{ margin: '0 0 4px', color: C.text, fontSize: 28, fontWeight: 900 }}>{turnoActual.entrada} – {turnoActual.salida}</p>
-              <p style={{ margin: '0 0 12px', color: C.textSub, fontSize: 13 }}>📅 {turnoActual.dias}</p>
-              <Badge text={turnoActual.turno} color="blue" />
+              <p style={{ margin: '0 0 4px', color: C.text, fontSize: 28, fontWeight: 900 }}>{String(turnoActual.hora_entrada).substring(0,5)} – {String(turnoActual.hora_salida).substring(0,5)}</p>
+              <p style={{ margin: '0 0 12px', color: C.textSub, fontSize: 13 }}>Horario #{turnoActual.id_horario}</p>
+              <Badge text="Turno activo" color="blue" />
             </>
           ) : (
             <p style={{ color: C.textMuted, fontSize: 14 }}>Sin turno asignado</p>
@@ -154,7 +156,8 @@ function Inicio({ notifs, setNotifs, setActive }: {
         <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 }}>
           <p style={{ margin: '0 0 16px', color: C.textSub, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em' }}>📚 Mis capacitaciones</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {CAPACITACIONES_INIT.map(cap => (
+            {caps.length === 0 && <p style={{ margin: 0, color: C.textMuted, fontSize: 13 }}>Sin capacitaciones.</p>}
+            {caps.map(cap => (
               <div key={cap.id}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                   <span style={{ color: cap.completada ? '#e2e8f0' : C.textMuted, fontSize: 13 }}>{cap.nombre}</span>
@@ -200,46 +203,39 @@ function Inicio({ notifs, setNotifs, setActive }: {
 }
 
 // ── Mis Servicios ─────────────────────────────────────────────────────────────
-function MisServicios() {
+function MisServicios({ servicios }: { servicios: ServicioDB[] }) {
   return (
     <div>
-      <h2 style={{ margin: '0 0 8px', color: C.text, fontSize: 20, fontWeight: 800 }}>🧹 Mis Servicios Asignados</h2>
-      <p style={{ margin: '0 0 20px', color: C.textMuted, fontSize: 13 }}>Servicios asignados por tu supervisor</p>
+      <h2 style={{ margin: '0 0 8px', color: C.text, fontSize: 20, fontWeight: 800 }}>🧹 Servicios</h2>
+      <p style={{ margin: '0 0 20px', color: C.textMuted, fontSize: 13 }}>Registro de servicios del sistema</p>
+      {servicios.length === 0 && <p style={{ color: C.textMuted, textAlign: 'center', padding: 40 }}>No hay servicios registrados.</p>}
       <div style={{ display: 'grid', gap: 14 }}>
-        {SERVICIOS_INIT.map(s => {
-          const sc = statusColor(s.estado);
-          const borderC = sc === 'green' ? 'rgba(34,197,94,.3)' : sc === 'blue' ? 'rgba(59,130,246,.3)' : 'rgba(234,179,8,.3)';
+        {servicios.map(s => {
+          const activo = !s.fecha_final;
+          const borderC = activo ? 'rgba(74,222,128,.3)' : 'rgba(59,130,246,.3)';
           return (
-            <div key={s.id} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, transition: 'all .2s' }}
+            <div key={s.id_servicio} style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, transition: 'all .2s' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = borderC; e.currentTarget.style.transform = 'translateY(-2px)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.transform = 'none'; }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                    <span style={{ color: C.blueLight, fontWeight: 700, fontSize: 12 }}>#{s.id}</span>
-                    <Badge text={s.estado} color={sc} />
+                    <span style={{ color: C.blueLight, fontWeight: 700, fontSize: 12 }}>#{s.id_servicio}</span>
+                    <Badge text={activo ? 'En curso' : 'Finalizado'} color={activo ? 'green' : 'blue'} />
                   </div>
-                  <p style={{ margin: 0, color: C.text, fontWeight: 800, fontSize: 16 }}>{s.tipo}</p>
+                  <p style={{ margin: 0, color: C.text, fontWeight: 800, fontSize: 16 }}>Tipo #{s.tipo_servicio} — {s.nombre_cliente ?? 'Cliente'}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: '0 0 2px', color: C.textMuted, fontSize: 11 }}>📅 {s.fecha}</p>
-                  <p style={{ margin: 0, color: C.textSub, fontSize: 12, fontWeight: 600 }}>⏰ {s.hora}</p>
+                  <p style={{ margin: '0 0 2px', color: C.textMuted, fontSize: 11 }}>📅 {new Date(s.fecha_inicio).toLocaleDateString('es-BO')}</p>
+                  <p style={{ margin: 0, color: '#4ade80', fontSize: 13, fontWeight: 700 }}>Bs {Number(s.costo).toLocaleString('es-BO')}</p>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {s.descripcion && (
                 <div style={{ background: '#0f1e30', borderRadius: 10, padding: '10px 14px' }}>
-                  <p style={{ margin: '0 0 3px', color: C.textMuted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Cliente</p>
-                  <p style={{ margin: 0, color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>🏢 {s.cliente}</p>
+                  <p style={{ margin: '0 0 3px', color: C.textMuted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Descripción</p>
+                  <p style={{ margin: 0, color: '#e2e8f0', fontSize: 13 }}>{s.descripcion}</p>
                 </div>
-                <div style={{ background: '#0f1e30', borderRadius: 10, padding: '10px 14px' }}>
-                  <p style={{ margin: '0 0 3px', color: C.textMuted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Supervisor</p>
-                  <p style={{ margin: 0, color: '#e2e8f0', fontSize: 13, fontWeight: 600 }}>👤 {s.supervisor}</p>
-                </div>
-                <div style={{ background: '#0f1e30', borderRadius: 10, padding: '10px 14px', gridColumn: 'span 2' }}>
-                  <p style={{ margin: '0 0 3px', color: C.textMuted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>Ubicación</p>
-                  <p style={{ margin: 0, color: '#e2e8f0', fontSize: 13 }}>📍 {s.ubicacion}</p>
-                </div>
-              </div>
+              )}
             </div>
           );
         })}
@@ -249,87 +245,94 @@ function MisServicios() {
 }
 
 // ── Horarios ──────────────────────────────────────────────────────────────────
-function MisHorarios() {
+function MisHorarios({ horarios }: { horarios: HoraDB[] }) {
   return (
     <div>
-      <h2 style={{ margin: '0 0 8px', color: C.text, fontSize: 20, fontWeight: 800 }}>🕐 Mis Horarios</h2>
-      <p style={{ margin: '0 0 20px', color: C.textMuted, fontSize: 13 }}>Turnos de trabajo asignados</p>
+      <h2 style={{ margin: '0 0 8px', color: C.text, fontSize: 20, fontWeight: 800 }}>🕐 Horarios</h2>
+      <p style={{ margin: '0 0 20px', color: C.textMuted, fontSize: 13 }}>Turnos de trabajo registrados en el sistema</p>
+      {horarios.length === 0 && <p style={{ color: C.textMuted, textAlign: 'center', padding: 40 }}>No hay horarios registrados.</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16, marginBottom: 24 }}>
-        {HORARIOS_INIT.map(h => (
-          <div key={h.id} style={{ background: C.bgCard, border: `1px solid ${h.activo ? 'rgba(0,112,243,.4)' : C.border}`, borderRadius: 16, padding: 24, position: 'relative', overflow: 'hidden', transition: 'all .2s' }}
+        {horarios.map((h, i) => (
+          <div key={h.id_horario} style={{ background: C.bgCard, border: `1px solid ${i === 0 ? 'rgba(0,112,243,.4)' : C.border}`, borderRadius: 16, padding: 24, position: 'relative', overflow: 'hidden', transition: 'all .2s' }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
-            {h.activo && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#003066,#0070f3)' }} />}
+            {i === 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#003066,#0070f3)' }} />}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <p style={{ margin: 0, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>{h.turno}</p>
-              {h.activo && <Badge text="Tu turno" color="blue" />}
+              <p style={{ margin: 0, color: C.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>Turno #{h.id_horario}</p>
+              {i === 0 && <Badge text="Principal" color="blue" />}
             </div>
-            <p style={{ margin: '0 0 8px', color: C.text, fontSize: 26, fontWeight: 800 }}>{h.entrada} – {h.salida}</p>
-            <p style={{ margin: 0, color: C.textSub, fontSize: 13 }}>📅 {h.dias}</p>
+            <p style={{ margin: '0 0 8px', color: C.text, fontSize: 26, fontWeight: 800 }}>{String(h.hora_entrada).substring(0,5)} – {String(h.hora_salida).substring(0,5)}</p>
           </div>
         ))}
-      </div>
-      <div style={{ background: 'rgba(0,112,243,.06)', border: '1px solid rgba(0,112,243,.2)', borderRadius: 14, padding: '18px 22px', borderLeft: '3px solid #0070f3' }}>
-        <p style={{ margin: '0 0 6px', color: C.blueLight, fontWeight: 800, fontSize: 13 }}>📌 Tu turno asignado actualmente</p>
-        <p style={{ margin: 0, color: C.textSub, fontSize: 14 }}>Turno Mañana — 06:00 a 14:00 hrs · Lunes a Viernes</p>
       </div>
     </div>
   );
 }
 
 // ── Capacitaciones ────────────────────────────────────────────────────────────
-function MisCapacitaciones({ show }: { show: (t: Toast['type'], m: string) => void }) {
-  const completadas = CAPACITACIONES_INIT.filter(c => c.completada).length;
+function MisCapacitaciones({ show, caps, loading }: { show: (t: Toast['type'], m: string) => void; caps: Cap[]; loading: boolean }) {
+  const completadas = caps.filter(c => c.completada).length;
+  const total       = caps.length;
 
   return (
     <div>
       <h2 style={{ margin: '0 0 8px', color: C.text, fontSize: 20, fontWeight: 800 }}>📚 Mis Capacitaciones</h2>
       <p style={{ margin: '0 0 20px', color: C.textMuted, fontSize: 13 }}>Capacitaciones asignadas por el administrador</p>
 
-      {/* Progress summary */}
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div>
-            <p style={{ margin: 0, color: C.text, fontWeight: 800, fontSize: 16 }}>Progreso general</p>
-            <p style={{ margin: '4px 0 0', color: C.textMuted, fontSize: 13 }}>{completadas} de {CAPACITACIONES_INIT.length} completadas</p>
-          </div>
-          <span style={{ color: C.green, fontWeight: 900, fontSize: 28 }}>{Math.round((completadas / CAPACITACIONES_INIT.length) * 100)}%</span>
-        </div>
-        <div style={{ background: '#0f1e30', borderRadius: 999, height: 8, overflow: 'hidden' }}>
-          <div style={{ width: `${(completadas / CAPACITACIONES_INIT.length) * 100}%`, height: '100%', background: 'linear-gradient(90deg,#003066,#4ade80)', borderRadius: 999, transition: 'width 1s ease' }} />
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gap: 14 }}>
-        {CAPACITACIONES_INIT.map(cap => (
-          <div key={cap.id} style={{ background: C.bgCard, border: `1px solid ${cap.completada ? 'rgba(34,197,94,.2)' : C.border}`, borderRadius: 16, padding: 22, transition: 'all .2s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = cap.completada ? 'rgba(34,197,94,.4)' : 'rgba(0,112,243,.3)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = cap.completada ? 'rgba(34,197,94,.2)' : C.border; e.currentTarget.style.transform = 'none'; }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+      {loading ? (
+        <p style={{ color: C.textMuted, textAlign: 'center', padding: 40 }}>Cargando capacitaciones...</p>
+      ) : (
+        <>
+          {/* Progress summary */}
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14, padding: '20px 24px', marginBottom: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: cap.completada ? 'rgba(34,197,94,.15)' : '#1e293b', border: `2px solid ${cap.completada ? '#4ade80' : '#334155'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
-                    {cap.completada ? '✓' : '○'}
-                  </div>
-                  <p style={{ margin: 0, color: cap.completada ? '#e2e8f0' : C.textSub, fontWeight: 800, fontSize: 15 }}>{cap.nombre}</p>
-                </div>
-                <p style={{ margin: 0, color: C.textMuted, fontSize: 12, paddingLeft: 42 }}>{cap.descripcion}</p>
+                <p style={{ margin: 0, color: C.text, fontWeight: 800, fontSize: 16 }}>Progreso general</p>
+                <p style={{ margin: '4px 0 0', color: C.textMuted, fontSize: 13 }}>{completadas} de {total} completadas</p>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                <Badge text={cap.completada ? 'Completada' : 'Pendiente'} color={cap.completada ? 'green' : 'yellow'} />
-                {cap.certificado && <Badge text="Certificado" color="purple" />}
-              </div>
+              <span style={{ color: C.green, fontWeight: 900, fontSize: 28 }}>{total > 0 ? Math.round((completadas / total) * 100) : 0}%</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: `1px solid ${C.borderLight}` }}>
-              <p style={{ margin: 0, color: C.textMuted, fontSize: 12 }}>📅 Fecha: {cap.fecha}</p>
-              {cap.certificado && (
-                <button onClick={() => show('info', `Descargando certificado: ${cap.nombre}`)} style={{ background: 'rgba(167,139,250,.1)', border: '1px solid rgba(167,139,250,.3)', color: '#a78bfa', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⬇ Certificado</button>
-              )}
-              {!cap.completada && <Badge text="Próximamente" color="yellow" />}
+            <div style={{ background: '#0f1e30', borderRadius: 999, height: 8, overflow: 'hidden' }}>
+              <div style={{ width: `${total > 0 ? (completadas / total) * 100 : 0}%`, height: '100%', background: 'linear-gradient(90deg,#003066,#4ade80)', borderRadius: 999, transition: 'width 1s ease' }} />
             </div>
           </div>
-        ))}
-      </div>
+
+          {caps.length === 0 && (
+            <p style={{ color: C.textMuted, textAlign: 'center', padding: 40 }}>No hay capacitaciones registradas.</p>
+          )}
+
+          <div style={{ display: 'grid', gap: 14 }}>
+            {caps.map(cap => (
+              <div key={cap.id} style={{ background: C.bgCard, border: `1px solid ${cap.completada ? 'rgba(34,197,94,.2)' : C.border}`, borderRadius: 16, padding: 22, transition: 'all .2s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = cap.completada ? 'rgba(34,197,94,.4)' : 'rgba(0,112,243,.3)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = cap.completada ? 'rgba(34,197,94,.2)' : C.border; e.currentTarget.style.transform = 'none'; }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: cap.completada ? 'rgba(34,197,94,.15)' : '#1e293b', border: `2px solid ${cap.completada ? '#4ade80' : '#334155'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
+                        {cap.completada ? '✓' : '○'}
+                      </div>
+                      <p style={{ margin: 0, color: cap.completada ? '#e2e8f0' : C.textSub, fontWeight: 800, fontSize: 15 }}>{cap.nombre}</p>
+                    </div>
+                    <p style={{ margin: 0, color: C.textMuted, fontSize: 12, paddingLeft: 42 }}>{cap.descripcion}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    <Badge text={cap.completada ? 'Completada' : 'Pendiente'} color={cap.completada ? 'green' : 'yellow'} />
+                    {cap.certificado && <Badge text="Certificado" color="purple" />}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: `1px solid ${C.borderLight}` }}>
+                  <p style={{ margin: 0, color: C.textMuted, fontSize: 12 }}>📅 Fecha: {cap.fecha}</p>
+                  {cap.certificado && (
+                    <button onClick={() => show('info', `Descargando certificado: ${cap.nombre}`)} style={{ background: 'rgba(167,139,250,.1)', border: '1px solid rgba(167,139,250,.3)', color: '#a78bfa', padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⬇ Certificado</button>
+                  )}
+                  {!cap.completada && <Badge text="Próximamente" color="yellow" />}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -349,21 +352,53 @@ export default function UsuarioPage() {
   const [active, setActive]       = useState<NavId>('inicio');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifs, setNotifs]       = useState(NOTIFS_INIT);
+  const [caps, setCaps]               = useState<Cap[]>([]);
+  const [loadingCaps, setLoadingCaps] = useState(false);
+  const [servicios, setServicios]     = useState<ServicioDB[]>([]);
+  const [horarios, setHorarios]       = useState<HoraDB[]>([]);
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
     router.push('/login');
   };
 
+  useEffect(() => {
+    setLoadingCaps(true);
+    fetch('/api/capacitaciones')
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) setCaps(j.data.map((c: CapDB) => ({
+          id:          c.id_capacitacion,
+          nombre:      c.nombre,
+          descripcion: c.descripcion ?? '',
+          fecha:       c.fecha,
+          completada:  new Date(c.fecha) < new Date(),
+          certificado: false,
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCaps(false));
+
+    fetch('/api/servicios')
+      .then(r => r.json())
+      .then(j => { if (j.success) setServicios(j.data); })
+      .catch(() => {});
+
+    fetch('/api/horarios')
+      .then(r => r.json())
+      .then(j => { if (j.success) setHorarios(j.data); })
+      .catch(() => {});
+  }, []);
+
   const unread  = notifs.filter(n => !n.leida).length;
   const current = NAV.find(n => n.id === active)!;
 
   const renderSection = () => {
     switch (active) {
-      case 'inicio':         return <Inicio notifs={notifs} setNotifs={setNotifs} setActive={setActive} />;
-      case 'servicios':      return <MisServicios />;
-      case 'horarios':       return <MisHorarios />;
-      case 'capacitaciones': return <MisCapacitaciones show={show} />;
+      case 'inicio':         return <Inicio notifs={notifs} setNotifs={setNotifs} setActive={setActive} caps={caps} servicios={servicios} horarios={horarios} />;
+      case 'servicios':      return <MisServicios servicios={servicios} />;
+      case 'horarios':       return <MisHorarios horarios={horarios} />;
+      case 'capacitaciones': return <MisCapacitaciones show={show} caps={caps} loading={loadingCaps} />;
     }
   };
 

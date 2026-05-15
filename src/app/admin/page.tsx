@@ -61,18 +61,9 @@ const RECURSOS_INIT: Recurso[] = [
   { id_recurso: 2, nombre: 'Trapeador Premium', tipo: 'Utensilio', proveedor: 'CleanStore', descripcion: 'Microfibra' },
   { id_recurso: 3, nombre: 'Desinfectante Hospitalario', tipo: 'Químico', proveedor: 'SupliLimp SA', descripcion: 'Nivel hospitalario' },
 ];
-const UNIFORMES_INIT: Uniforme[] = [
-  { id_uniforme: 1, nombre_uniforme: 'Camisa Operativa', talla: 42, descripcion: 'Azul marino con logo' },
-  { id_uniforme: 2, nombre_uniforme: 'Pantalón de Trabajo', talla: 40, descripcion: 'Resistente' },
-];
-const ASIG_UNI_INIT: AsignacionUniforme[] = [
-  { id: 1, usuario: 'Ana Torres', uniforme: 'Camisa Operativa', fecha_entrega: '2026-01-15', fecha_devolucion: null, estado: 'Entregado' },
-];
-const CAPACITACIONES_INIT: Capacitacion[] = [
-  { id_capacitacion: 1, nombre: 'Manejo de Químicos', descripcion: 'Uso seguro de productos de limpieza', fecha: '2026-03-10', asignados: [1, 2] },
-  { id_capacitacion: 2, nombre: 'Primeros Auxilios', descripcion: 'Atención básica en emergencias', fecha: '2026-04-05', asignados: [1] },
-  { id_capacitacion: 3, nombre: 'Protocolo Sanitario', descripcion: 'Medidas sanitarias vigentes', fecha: '2026-05-01', asignados: [] },
-];
+const UNIFORMES_INIT: Uniforme[] = [];
+const ASIG_UNI_INIT: AsignacionUniforme[] = [];
+const CAPACITACIONES_INIT: Capacitacion[] = [];
 const MANTENIMIENTOS_INIT: Mantenimiento[] = [
   { id_mantenimiento: 1, maquinaria: 'Fregadora Automática F50', fecha_mantenimiento: '2026-04-10', descripcion: 'Revisión de motor', costo: 350 },
 ];
@@ -557,9 +548,21 @@ function Capacitaciones({ data, setData, empleados, show }: { data: Capacitacion
   const [asigTemp, setAsigTemp] = useState<number[]>([]);
   const [empSearch, setEmpSearch] = useState('');
 
-  const save = () => {
-    if (modal?.mode === 'new') { setData(p => [...p, { ...f, id_capacitacion: p.length + 1, asignados: [] } as Capacitacion]); show('success', 'Capacitación creada'); }
-    else if (modal?.mode === 'edit') { setData(p => p.map(c => c.id_capacitacion === f.id_capacitacion ? { ...c, ...f } : c)); show('info', 'Capacitación actualizada'); }
+  const save = async () => {
+    const body = { nombre: f.nombre, descripcion: f.descripcion, fecha: f.fecha };
+    try {
+      if (modal?.mode === 'new') {
+        const res  = await fetch('/api/capacitaciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const json = await res.json();
+        if (json.success) { setData(p => [...p, { ...json.data, asignados: [] }]); show('success', 'Capacitación creada'); }
+        else show('error', json.message);
+      } else {
+        const res  = await fetch(`/api/capacitaciones/${f.id_capacitacion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const json = await res.json();
+        if (json.success) { setData(p => p.map(c => c.id_capacitacion === f.id_capacitacion ? { ...json.data, asignados: c.asignados } : c)); show('info', 'Capacitación actualizada'); }
+        else show('error', json.message);
+      }
+    } catch { show('error', 'Error de red'); }
     setModal(null);
   };
 
@@ -603,7 +606,7 @@ function Capacitaciones({ data, setData, empleados, show }: { data: Capacitacion
                     👥 Asignar
                   </button>
                   <Btn sm variant="ghost" onClick={() => { setF(cap); setModal({ mode: 'edit', item: cap }); }}>✏️</Btn>
-                  <Btn sm variant="danger" onClick={() => { setData(p => p.filter(x => x.id_capacitacion !== cap.id_capacitacion)); show('error', 'Capacitación eliminada'); }}>🗑️</Btn>
+                  <Btn sm variant="danger" onClick={async () => { const r = await fetch(`/api/capacitaciones/${cap.id_capacitacion}`, { method: 'DELETE' }); const j = await r.json(); if (j.success) { setData(p => p.filter(x => x.id_capacitacion !== cap.id_capacitacion)); show('error', 'Capacitación eliminada'); } else show('error', j.message); }}>🗑️</Btn>
                 </div>
               </div>
             </div>
@@ -627,7 +630,7 @@ function Capacitaciones({ data, setData, empleados, show }: { data: Capacitacion
                 </div>
                 <span style={{ color: pct === 100 ? C.green : C.blueLight, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{cap.asignados.length}/{empleados.length}</span>
               </div>,
-              <RowActions onEdit={() => { setF(cap); setModal({ mode: 'edit', item: cap }); }} onDel={() => { setData(p => p.filter(x => x.id_capacitacion !== cap.id_capacitacion)); show('error', 'Capacitación eliminada'); }} />,
+              <RowActions onEdit={() => { setF(cap); setModal({ mode: 'edit', item: cap }); }} onDel={async () => { const r = await fetch(`/api/capacitaciones/${cap.id_capacitacion}`, { method: 'DELETE' }); const j = await r.json(); if (j.success) { setData(p => p.filter(x => x.id_capacitacion !== cap.id_capacitacion)); show('error', 'Capacitación eliminada'); } else show('error', j.message); }} />,
             ];
           })}
         />
@@ -1092,16 +1095,51 @@ function Uniformes({ uniforms, setUniforms, asig, setAsig, empleados, show }: { 
   const [tab, setTab] = useState<'catalogo' | 'asignaciones'>('catalogo');
   const [f, setF] = useState<Record<string, unknown>>({});
   const [modal, setModal] = useState<{ type: string; mode: 'new' | 'edit' } | null>(null);
-  const saveUni = () => { if (modal?.mode === 'new') { setUniforms(p => [...p, { ...f, id_uniforme: p.length + 1 } as Uniforme]); show('success', 'Uniforme creado'); } else { setUniforms(p => p.map(u => u.id_uniforme === f.id_uniforme ? { ...u, ...f } as Uniforme : u)); show('info', 'Uniforme actualizado'); } setModal(null); };
-  const saveAsig = () => { if (modal?.mode === 'new') { setAsig(p => [...p, { ...f, id: p.length + 1 } as AsignacionUniforme]); show('success', 'Asignación registrada'); } else { setAsig(p => p.map(a => a.id === f.id ? { ...a, ...f } as AsignacionUniforme : a)); show('info', 'Asignación actualizada'); } setModal(null); };
+  const saveUni = async () => {
+    const body = { nombre_uniforme: f.nombre_uniforme, talla: Number(f.talla), descripcion: f.descripcion || null };
+    try {
+      if (modal?.mode === 'new') {
+        const res  = await fetch('/api/uniformes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const json = await res.json();
+        if (json.success) { setUniforms(p => [...p, json.data]); show('success', 'Uniforme creado'); }
+        else show('error', json.message);
+      } else {
+        const res  = await fetch(`/api/uniformes/${f.id_uniforme}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const json = await res.json();
+        if (json.success) { setUniforms(p => p.map(u => u.id_uniforme === f.id_uniforme ? json.data : u)); show('info', 'Uniforme actualizado'); }
+        else show('error', json.message);
+      }
+    } catch { show('error', 'Error de red'); }
+    setModal(null);
+  };
+  const saveAsig = async () => {
+    const emp = empleados.find(e => e.nombre_usuario === f.usuario);
+    const uni = uniforms.find(u => u.nombre_uniforme === f.uniforme);
+    if (!emp || !uni) { show('error', 'Empleado o uniforme no encontrado'); return; }
+    const body = { id_usuario: emp.id_usuario, id_uniforme: uni.id_uniforme, fecha_entrega: f.fecha_entrega, fecha_devolucion: f.fecha_devolucion || null, estado: f.estado };
+    try {
+      if (modal?.mode === 'new') {
+        const res  = await fetch('/api/asignaciones-uniformes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const json = await res.json();
+        if (json.success) { setAsig(p => [...p, { id: json.data.id_asignacion, usuario: emp.nombre_usuario, uniforme: String(f.uniforme), fecha_entrega: String(f.fecha_entrega), fecha_devolucion: (f.fecha_devolucion as string | null) ?? null, estado: String(f.estado) }]); show('success', 'Asignación registrada'); }
+        else show('error', json.message);
+      } else {
+        const res  = await fetch(`/api/asignaciones-uniformes/${f.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const json = await res.json();
+        if (json.success) { setAsig(p => p.map(a => a.id === f.id ? { ...a, usuario: emp.nombre_usuario, uniforme: String(f.uniforme), fecha_entrega: String(f.fecha_entrega), fecha_devolucion: (f.fecha_devolucion as string | null) ?? null, estado: String(f.estado) } : a)); show('info', 'Asignación actualizada'); }
+        else show('error', json.message);
+      }
+    } catch { show('error', 'Error de red'); }
+    setModal(null);
+  };
   return (
     <div>
       <SecHeader title="👕 Uniformes" onAdd={() => { setF(tab === 'catalogo' ? {} : { usuario: empleados[0]?.nombre_usuario, uniforme: uniforms[0]?.nombre_uniforme, estado: 'Entregado' }); setModal({ type: tab, mode: 'new' }); }} addLabel={tab === 'catalogo' ? 'Nuevo Uniforme' : 'Nueva Asignación'} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {(['catalogo', 'asignaciones'] as const).map(t => <button key={t} onClick={() => setTab(t)} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: tab === t ? C.blue : 'rgba(255,255,255,.05)', color: tab === t ? '#fff' : C.textMuted, fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>{t === 'catalogo' ? '📦 Catálogo' : '👕 Asignaciones'}</button>)}
       </div>
-      {tab === 'catalogo' && <Card><Tabla headers={['ID', 'Nombre', 'Talla', 'Descripción', 'Acciones']} rows={uniforms.map(u => [<span style={{ color: C.blueLight }}>#{u.id_uniforme}</span>, <strong>{u.nombre_uniforme}</strong>, u.talla, u.descripcion || '—', <RowActions onEdit={() => { setF(u as unknown as Record<string, unknown>); setModal({ type: 'catalogo', mode: 'edit' }); }} onDel={() => { setUniforms(p => p.filter(x => x.id_uniforme !== u.id_uniforme)); show('error', 'Uniforme eliminado'); }} />])} /></Card>}
-      {tab === 'asignaciones' && <Card><Tabla headers={['ID', 'Empleado', 'Uniforme', 'Entrega', 'Estado', 'Acciones']} rows={asig.map(a => [<span style={{ color: C.blueLight }}>#{a.id}</span>, a.usuario, a.uniforme, a.fecha_entrega, <Badge text={a.estado} color={a.estado === 'Entregado' ? 'green' : 'blue'} />, <RowActions onEdit={() => { setF(a as unknown as Record<string, unknown>); setModal({ type: 'asignaciones', mode: 'edit' }); }} onDel={() => { setAsig(p => p.filter(x => x.id !== a.id)); show('error', 'Asignación eliminada'); }} />])} /></Card>}
+      {tab === 'catalogo' && <Card><Tabla headers={['ID', 'Nombre', 'Talla', 'Descripción', 'Acciones']} rows={uniforms.map(u => [<span style={{ color: C.blueLight }}>#{u.id_uniforme}</span>, <strong>{u.nombre_uniforme}</strong>, u.talla, u.descripcion || '—', <RowActions onEdit={() => { setF(u as unknown as Record<string, unknown>); setModal({ type: 'catalogo', mode: 'edit' }); }} onDel={async () => { const r = await fetch(`/api/uniformes/${u.id_uniforme}`, { method: 'DELETE' }); const j = await r.json(); if (j.success) { setUniforms(p => p.filter(x => x.id_uniforme !== u.id_uniforme)); show('error', 'Uniforme eliminado'); } else show('error', j.message); }} />])} /></Card>}
+      {tab === 'asignaciones' && <Card><Tabla headers={['ID', 'Empleado', 'Uniforme', 'Entrega', 'Estado', 'Acciones']} rows={asig.map(a => [<span style={{ color: C.blueLight }}>#{a.id}</span>, a.usuario, a.uniforme, a.fecha_entrega, <Badge text={a.estado} color={a.estado === 'Entregado' ? 'green' : 'blue'} />, <RowActions onEdit={() => { setF(a as unknown as Record<string, unknown>); setModal({ type: 'asignaciones', mode: 'edit' }); }} onDel={async () => { const r = await fetch(`/api/asignaciones-uniformes/${a.id}`, { method: 'DELETE' }); const j = await r.json(); if (j.success) { setAsig(p => p.filter(x => x.id !== a.id)); show('error', 'Asignación eliminada'); } else show('error', j.message); }} />])} /></Card>}
       {modal && (
         <Modal title={modal.type === 'catalogo' ? 'Uniforme' : 'Asignación de Uniforme'} onClose={() => setModal(null)}>
           {modal.type === 'catalogo' ? (
@@ -1183,6 +1221,23 @@ export default function AdminDashboard() {
     await fetch('/api/logout', { method: 'POST' });
     router.push('/login');
   };
+
+  useEffect(() => {
+    fetch('/api/uniformes').then(r => r.json()).then(j => { if (j.success) setUniforms(j.data); }).catch(() => {});
+    fetch('/api/capacitaciones').then(r => r.json()).then(j => {
+      if (j.success) setCapacitaciones(j.data.map((c: Omit<Capacitacion, 'asignados'>) => ({ ...c, asignados: [] })));
+    }).catch(() => {});
+    fetch('/api/asignaciones-uniformes').then(r => r.json()).then(j => {
+      if (j.success) setAsigUni(j.data.map((a: { id_asignacion: number; id_usuario: number; nombre_uniforme: string; fecha_entrega: string; fecha_devolucion: string | null; estado: string }) => ({
+        id: a.id_asignacion,
+        usuario: String(a.id_usuario),
+        uniforme: a.nombre_uniforme,
+        fecha_entrega: a.fecha_entrega,
+        fecha_devolucion: a.fecha_devolucion,
+        estado: a.estado,
+      })));
+    }).catch(() => {});
+  }, []);
 
   const groups = [...new Set(NAV.map(n => n.group))];
   const current = NAV.find(n => n.id === active)!;
