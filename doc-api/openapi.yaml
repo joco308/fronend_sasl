@@ -1,0 +1,2644 @@
+openapi: 3.1.0
+info:
+  title: Api SASL
+  version: 1.0.0
+  description: API del Sistema de Administración de Servicios SASL.
+  contact:
+    email: dinerus3452@gmail.com
+
+servers:
+  - url: http://localhost:5112
+    description: Desarrollo (HTTP)
+  - url: https://localhost:7102
+    description: Desarrollo (HTTPS)
+
+tags:
+  - name: Usuarios
+    description: Gestión de usuarios internos (trabajadores, administradores)
+  - name: Clientes
+    description: Gestión de clientes y autenticación de clientes
+  - name: Servicios
+    description: Gestión de servicios, asignación de empleados, maquinaria y recursos
+  - name: Maquinaria
+    description: Gestión de maquinaria, marcas, mantenimiento y estados
+  - name: Productos
+    description: Gestión de recursos/productos e inventario
+  - name: Proveedores
+    description: Gestión de proveedores
+  - name: Trabajadores
+    description: Consulta de trabajadores, roles y exportación CSV
+  - name: Reportes
+    description: Incidentes, memorandos, PDF, estado de maquinaria y CSV
+  - name: Cobros
+    description: Gestión de cobros, pagos y códigos QR
+  - name: Catálogos
+    description: Catálogos y subdominios del sistema
+
+paths:
+  # ==============================================================================
+  # USUARIOS
+  # ==============================================================================
+  /Api/Usuarios:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtiene la lista completa de trabajadores
+      operationId: listarUsuarios
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de trabajadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioDatos'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /Api/Usuarios/solicitar-2fa:
+    post:
+      tags:
+        - Usuarios
+      summary: Pide correo y contraseña y envía código 2FA al correo
+      operationId: solicitar2faUsuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioLogin'
+      responses:
+        '200':
+          description: Código enviado al correo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                    example: Código enviado al correo
+        '401':
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                  example: Credenciales incorrectas.
+
+  /Api/Usuarios/verificar-2fa:
+    post:
+      tags:
+        - Usuarios
+      summary: Verifica el código 2FA y entrega el token en cookie
+      operationId: verificar2faUsuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login2FA'
+      responses:
+        '200':
+          description: Autenticación exitosa (cookie token_sesion seteada)
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: token_sesion=xxx; HttpOnly; Secure; SameSite=Strict; Path=/
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                    example: Autenticación exitosa
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/{servicio}:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtiene trabajadores filtrados por asignación a servicio
+      operationId: usuariosFiltrados
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: servicio
+          in: path
+          required: true
+          schema:
+            type: boolean
+          description: 'true = con servicio, false = sin servicio'
+      responses:
+        '200':
+          description: Lista filtrada
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioDatos'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/nuevoUsuario:
+    post:
+      tags:
+        - Usuarios
+      summary: Registra un nuevo trabajador y su dirección
+      operationId: crearUsuario
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevoUsiario'
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                    example: Usuario creado exitosamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /Api/Usuarios/{ci}/direccion:
+    patch:
+      tags:
+        - Usuarios
+      summary: Actualiza únicamente la dirección del usuario
+      operationId: editarDireccionUsuario
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: ci
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Cédula de identidad del usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarDireccion'
+      responses:
+        '200':
+          description: Dirección actualizada correctamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/{ci}/rol:
+    patch:
+      tags:
+        - Usuarios
+      summary: Cambia el nivel de acceso (Rol) de un trabajador
+      operationId: editarRolUsuario
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: ci
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarRol'
+      responses:
+        '200':
+          description: Rol actualizado correctamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/SubirArchivo:
+    post:
+      tags:
+        - Usuarios
+      summary: Sube archivos de trabajadores (multipart)
+      operationId: subirArchivoUsuario
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                dto:
+                  $ref: '#/components/schemas/DatosParaSubirDoc'
+                archivo:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Archivo subido correctamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/VerArchivo/{id}:
+    get:
+      tags:
+        - Usuarios
+      summary: Descarga un archivo de usuario por ID de documento
+      operationId: verArchivoUsuario
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tipo
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Archivo PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/AgregarCarrera:
+    post:
+      tags:
+        - Usuarios
+      summary: Agrega una carrera universitaria a un usuario
+      operationId: agregarCarreraUsuario
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirCarrera'
+      responses:
+        '200':
+          description: Carrera agregada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/Docuemntos/Listar:
+    get:
+      tags:
+        - Usuarios
+      summary: Lista documentos de un usuario por tipo
+      operationId: listarDocumentosUsuario
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: idtipo
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de documentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentosUsuarioTipo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # SERVICIOS
+  # ==============================================================================
+  /Api/Servicios:
+    get:
+      tags:
+        - Servicios
+      summary: Muestra los servicios en forma de lista resumida
+      operationId: listarServicios
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de servicios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarServicio'
+    post:
+      tags:
+        - Servicios
+      summary: Añade un servicio nuevo
+      operationId: crearServicio
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirServicio'
+      responses:
+        '201':
+          description: Servicio creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/Nuevo:
+    post:
+      tags:
+        - Servicios
+      summary: Añade un servicio nuevo
+      operationId: crearServicioAlterno
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirServicio'
+      responses:
+        '201':
+          description: Servicio creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/{id}:
+    get:
+      tags:
+        - Servicios
+      summary: Muestra los detalles de un servicio por su ID
+      operationId: infoServicio
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del servicio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoServicio'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/Asignar-empleado:
+    post:
+      tags:
+        - Servicios
+      summary: Asigna un usuario/trabajador a un servicio
+      operationId: asignarEmpleadoServicio
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignarUsuariosServicios'
+      responses:
+        '200':
+          description: Empleado asignado al servicio exitosamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/asignar-maquinaria:
+    post:
+      tags:
+        - Servicios
+      summary: Asigna una maquinaria a un servicio
+      operationId: asignarMaquinariaServicio
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignarMaquinariaServicios'
+      responses:
+        '200':
+          description: Maquinaria asignada correctamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/asignar-recurso:
+    post:
+      tags:
+        - Servicios
+      summary: Asigna un recurso a un servicio
+      operationId: asignarRecursoServicio
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignarRecursoServicios'
+      responses:
+        '200':
+          description: Recurso asignado correctamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/exportar-csv:
+    get:
+      tags:
+        - Servicios
+      summary: Genera y descarga CSV con información completa de servicios
+      operationId: exportarServiciosCSV
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Archivo CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/ServicioTerminado/Nuevo:
+    post:
+      tags:
+        - Servicios
+      summary: Marca un servicio como terminado
+      operationId: servicioTerminado
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddServicioTerminado'
+      responses:
+        '201':
+          description: Servicio terminado creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Servicios/horarios:
+    get:
+      tags:
+        - Servicios
+      summary: Muestra la lista de horarios disponibles
+      operationId: listarHorarios
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de horarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HorarioDTO'
+
+  /Api/Servicios/ServicioTerminado:
+    get:
+      tags:
+        - Servicios
+      summary: Lista servicios terminados (resumido)
+      operationId: listarServiciosTerminados
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de servicios terminados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarServicioTerminado'
+
+  /Api/Servicios/ServicioTerminado/{id}:
+    get:
+      tags:
+        - Servicios
+      summary: Detalles de un servicio terminado por ID
+      operationId: infoServicioTerminado
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del servicio terminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoServicioTerminado'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # MAQUINARIA
+  # ==============================================================================
+  /Api/Maquinaria:
+    get:
+      tags:
+        - Maquinaria
+      summary: Lista todas las maquinarias (versión resumida)
+      operationId: listarMaquinarias
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de maquinarias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarMaquinaria'
+    post:
+      tags:
+        - Maquinaria
+      summary: Añade una nueva maquinaria
+      operationId: crearMaquinaria
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgregarMaquinaria'
+      responses:
+        '201':
+          description: Maquinaria creada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Maquinaria/{id}:
+    get:
+      tags:
+        - Maquinaria
+      summary: Información detallada de una maquinaria por ID
+      operationId: infoMaquinaria
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información de la maquinaria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoMaquinaria'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Maquinaria/marcas:
+    get:
+      tags:
+        - Maquinaria
+      summary: Lista todas las marcas de maquinaria
+      operationId: listarMarcasMaquinaria
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de marcas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MostrarMarcas'
+    post:
+      tags:
+        - Maquinaria
+      summary: Añade una nueva marca de maquinaria
+      operationId: crearMarcaMaquinaria
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgragarMarcaMaquinaria'
+      responses:
+        '200':
+          description: Marca creada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Maquinaria/estados:
+    get:
+      tags:
+        - Maquinaria
+      summary: Lista estados de calidad (subdominios)
+      operationId: listarEstadosMaquinaria
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de estados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Estado'
+
+  /Api/Maquinaria/Short{id}:
+    get:
+      tags:
+        - Maquinaria
+      summary: Información resumida de una maquinaria
+      operationId: infoResumidaMaquinaria
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información resumida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoResuminaMaquinara'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Maquinaria/mantenimiento:
+    get:
+      tags:
+        - Maquinaria
+      summary: Lista todos los mantenimientos
+      operationId: listarMantenimientos
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de mantenimientos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarManteniminto'
+    post:
+      tags:
+        - Maquinaria
+      summary: Añade un mantenimiento a una maquinaria
+      operationId: crearMantenimiento
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddManteniminetoMaquinaria'
+      responses:
+        '201':
+          description: Mantenimiento creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Maquinaria/mantenimiento/{id}:
+    get:
+      tags:
+        - Maquinaria
+      summary: Detalles de un mantenimiento por ID
+      operationId: infoMantenimiento
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del mantenimiento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoManteniminto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # PRODUCTOS
+  # ==============================================================================
+  /Api/Productos:
+    get:
+      tags:
+        - Productos
+      summary: Lista todos los recursos/productos
+      operationId: listarProductos
+      responses:
+        '200':
+          description: Lista de recursos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarRecurso'
+    post:
+      tags:
+        - Productos
+      summary: Añade un nuevo recurso
+      operationId: crearProducto
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirRecurso'
+      responses:
+        '200':
+          description: Recurso creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Productos/editar/nombre:
+    patch:
+      tags:
+        - Productos
+      summary: Edita el nombre de un recurso
+      operationId: editarNombreProducto
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarNombre'
+      responses:
+        '200':
+          description: Nombre actualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Productos/editar/descripcion:
+    patch:
+      tags:
+        - Productos
+      summary: Edita la descripción de un recurso
+      operationId: editarDescripcionProducto
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarDescripcion'
+      responses:
+        '200':
+          description: Descripción actualizada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # PROVEEDORES
+  # ==============================================================================
+  /Api/Proveedores:
+    get:
+      tags:
+        - Proveedores
+      summary: Lista resumida de todos los proveedores
+      operationId: listarProveedores
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de proveedores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarProvedores'
+    post:
+      tags:
+        - Proveedores
+      summary: Registra un nuevo proveedor
+      operationId: crearProveedor
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirProvedor'
+      responses:
+        '200':
+          description: Proveedor creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Proveedores/{id}:
+    get:
+      tags:
+        - Proveedores
+      summary: Información detallada de un proveedor por ID
+      operationId: infoProveedor
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del proveedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InformacionProvedor'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Proveedores/telefono:
+    post:
+      tags:
+        - Proveedores
+      summary: Asocia un teléfono a un proveedor
+      operationId: agregarTelefonoProveedor
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgregarTelefonoProvedor'
+      responses:
+        '200':
+          description: Teléfono agregado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Proveedores/nombre:
+    patch:
+      tags:
+        - Proveedores
+      summary: Actualiza el nombre de contacto de un proveedor
+      operationId: editarNombreProveedor
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdmasNombre'
+      responses:
+        '200':
+          description: Nombre actualizado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # TRABAJADORES
+  # ==============================================================================
+  /Api/Trabajadores/{ci}:
+    get:
+      tags:
+        - Trabajadores
+      summary: Información de un trabajador por CI
+      operationId: infoTrabajador
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: ci
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del trabajador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerInfoUsuario'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Trabajadores/roles:
+    get:
+      tags:
+        - Trabajadores
+      summary: Lista los roles disponibles
+      operationId: listarRoles
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarRoles'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Trabajadores/telefonos:
+    post:
+      tags:
+        - Trabajadores
+      summary: Asocia teléfonos a un trabajador
+      operationId: agregarTelefonoTrabajador
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirTelefonoTrabajadores'
+      responses:
+        '200':
+          description: Teléfono(s) agregado(s)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Trabajadores/exportar-csv:
+    get:
+      tags:
+        - Trabajadores
+      summary: Descarga CSV con información completa de trabajadores
+      operationId: exportarTrabajadoresCSV
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Archivo CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # REPORTES
+  # ==============================================================================
+  /Api/Reportes/incidentes:
+    get:
+      tags:
+        - Reportes
+      summary: Lista incidentes (resumido)
+      operationId: listarIncidentes
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de incidentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListaIncidente'
+    post:
+      tags:
+        - Reportes
+      summary: Agrega un incidente (cliente autenticado)
+      operationId: crearIncidente
+      security:
+        - Cliente: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddIncidente'
+      responses:
+        '201':
+          description: Incidente creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Reportes/incidentes/{id}:
+    get:
+      tags:
+        - Reportes
+      summary: Información detallada de un incidente
+      operationId: infoIncidente
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del incidente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/infoIncidente'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Reportes/memorandums:
+    post:
+      tags:
+        - Reportes
+      summary: Agrega un memorandum
+      operationId: crearMemorandum
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemorandum'
+      responses:
+        '201':
+          description: Memorandum creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Reportes/memorandums/{id}/pdf:
+    get:
+      tags:
+        - Reportes
+      summary: Genera y descarga PDF de un memorandum
+      operationId: generarMemorandumPDF
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Archivo PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Reportes/estado-maquinaria:
+    get:
+      tags:
+        - Reportes
+      summary: Lista historial de estado de maquinaria
+      operationId: listarHistorialMaquinaria
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Historial de estados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListHistorialEstadoMaquinaria'
+    post:
+      tags:
+        - Reportes
+      summary: Reporta un estado de maquinaria
+      operationId: reportarEstadoMaquinaria
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstadoMaquinaria'
+      responses:
+        '201':
+          description: Estado reportado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Reportes/exportar-csv:
+    get:
+      tags:
+        - Reportes
+      summary: Descarga CSV del historial de estado de maquinaria
+      operationId: exportarHistorialCSV
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Archivo CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # CLIENTES
+  # ==============================================================================
+  /Api/Clientes/solicitar-2fa:
+    post:
+      tags:
+        - Clientes
+      summary: Login de cliente (email+contraseña → código 2FA al correo)
+      operationId: solicitar2faCliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClienteLogin'
+      responses:
+        '200':
+          description: Código enviado al correo
+        '401':
+          description: Credenciales incorrectas
+
+  /Api/Clientes/verificar-2fa:
+    post:
+      tags:
+        - Clientes
+      summary: Verifica código 2FA de cliente y entrega token en cookie
+      operationId: verificar2faCliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cliente2Fa'
+      responses:
+        '200':
+          description: Autenticación exitosa (cookie seteada)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Clientes:
+    get:
+      tags:
+        - Clientes
+      summary: Lista resumida de todos los clientes
+      operationId: listarClientes
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InfoClienteCorto'
+    post:
+      tags:
+        - Clientes
+      summary: Registra un nuevo cliente
+      operationId: crearCliente
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirCliente'
+      responses:
+        '201':
+          description: Cliente creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Clientes/{id}:
+    get:
+      tags:
+        - Clientes
+      summary: Información detallada de un cliente por ID
+      operationId: infoCliente
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del cliente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoCleinte'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # COBROS
+  # ==============================================================================
+  /Api/Cobros:
+    get:
+      tags:
+        - Cobros
+      summary: Lista resumida de todos los cobros
+      operationId: listarCobros
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de cobros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarCobro'
+    post:
+      tags:
+        - Cobros
+      summary: Registra un nuevo cobro
+      operationId: crearCobro
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearCobro'
+      responses:
+        '201':
+          description: Cobro creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Cobros/{id}:
+    get:
+      tags:
+        - Cobros
+      summary: Detalles de un cobro por ID
+      operationId: infoCobro
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información del cobro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoCobro'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Cobros/mis-cobros:
+    get:
+      tags:
+        - Cobros
+      summary: Lista los cobros del cliente autenticado
+      operationId: listarCobrosCliente
+      security:
+        - Cliente: []
+      responses:
+        '200':
+          description: Lista de cobros del cliente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarCobro'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Cobros/pagos:
+    post:
+      tags:
+        - Cobros
+      summary: Registra un pago asociado a un cobro
+      operationId: registrarPago
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrarPago'
+      responses:
+        '201':
+          description: Pago registrado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Cobros/{idCobro}/pagos:
+    get:
+      tags:
+        - Cobros
+      summary: Lista los pagos de un cobro específico
+      operationId: listarPagosCobro
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: idCobro
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de pagos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarPago'
+
+  /Api/Cobros/{idCobro}/notificar-pago:
+    post:
+      tags:
+        - Cobros
+      summary: El cliente notifica que realizó un pago (WebSocket a administradores)
+      operationId: notificarPago
+      security:
+        - Cliente: []
+      parameters:
+        - name: idCobro
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Notificación enviada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /Api/Cobros/qrs:
+    get:
+      tags:
+        - Cobros
+      summary: Lista todos los códigos QR registrados
+      operationId: listarQrs
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de QRs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarQr'
+    post:
+      tags:
+        - Cobros
+      summary: Sube un código QR al servidor (multipart)
+      operationId: crearQr
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrearQr'
+      responses:
+        '201':
+          description: QR creado
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Cobros/qrs/{idQr}/imagen:
+    get:
+      tags:
+        - Cobros
+      summary: Descarga la imagen de un código QR
+      operationId: obtenerImagenQr
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: idQr
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Imagen PNG del QR
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # CATÁLOGOS
+  # ==============================================================================
+  /Api/Catalogos/{nombre}:
+    get:
+      tags:
+        - Catálogos
+      summary: Retorna ID y nombre de subdominios filtrados por nombre del dominio
+      operationId: obtenerCatalogo
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: nombre
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de subdominios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatalogoDTO'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==============================================================================
+  # WEBSOCKET
+  # ==============================================================================
+  /ws:
+    get:
+      tags:
+        - WebSocket
+      summary: Conexión WebSocket (requiere autenticación vía cookie)
+      operationId: webSocket
+      security:
+        - cookieAuth: []
+      responses:
+        '101':
+          description: Conexión WebSocket establecida
+        '400':
+          description: No es una solicitud WebSocket
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token_sesion
+      description: Cualquier usuario autenticado (RequireAuthorization sin policy específica).
+    PersonalAutorizado:
+      type: apiKey
+      in: cookie
+      name: token_sesion
+      description: Requiere rol Gerente o Administrador (policy PersonalAutorizado).
+    Cliente:
+      type: apiKey
+      in: cookie
+      name: token_sesion
+      description: Requiere rol Cliente (policy Cliente).
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Mensaje de error
+        mensaje:
+          type: string
+          description: Mensaje alternativo de error
+
+    # ----------------------------------------------------------------------------
+    # Usuarios
+    # ----------------------------------------------------------------------------
+    UsuarioLogin:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+          example: usuario@correo.com
+        password:
+          type: string
+          format: password
+          example: miPassword123
+      required:
+        - correo
+        - password
+
+    Login2FA:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: usuario@correo.com
+        codigoIngresado:
+          type: string
+          example: '123456'
+      required:
+        - email
+        - codigoIngresado
+
+    NuevoUsiario:
+      type: object
+      properties:
+        NombreUsuario:
+          type: string
+        FechaNacimiento:
+          type: string
+          format: date
+        Correo:
+          type: string
+          format: email
+        IdRol:
+          type: integer
+        IdEstadoCivil:
+          type: integer
+        IdGradoAcademico:
+          type: integer
+        IdGenero:
+          type: integer
+        Calle:
+          type: string
+        idZona:
+          type: integer
+        NumeroCasa:
+          type: integer
+        Contrasena:
+          type: string
+        idPais:
+          type: integer
+        CI:
+          type: integer
+
+    EditarDireccion:
+      type: object
+      properties:
+        CI:
+          type: integer
+        Zona:
+          type: integer
+        Calle:
+          type: string
+        NumeroCasa:
+          type: integer
+
+    EditarRol:
+      type: object
+      properties:
+        CI:
+          type: integer
+        Rol:
+          type: integer
+
+    UsuarioDatos:
+      type: object
+      properties:
+        IdUsuario:
+          type: integer
+        NombreUsuario:
+          type: string
+        Ci:
+          type: integer
+        correo:
+          type: string
+        rol:
+          type: string
+        salario:
+          type: integer
+        creado:
+          type: string
+          format: date-time
+
+    DatosParaSubirDoc:
+      type: object
+      properties:
+        idUSer:
+          type: integer
+        idtipoDoc:
+          type: integer
+        tipoDoc:
+          type: string
+
+    AñadirCarrera:
+      type: object
+      properties:
+        idUsuario:
+          type: integer
+        idCarrera:
+          type: integer
+        Carrera:
+          type: string
+
+    DocumentosUsuarioTipo:
+      type: object
+      properties:
+        idDoc:
+          type: integer
+        nombre:
+          type: string
+        fechaSubido:
+          type: string
+          format: date
+
+    # ----------------------------------------------------------------------------
+    # Servicios
+    # ----------------------------------------------------------------------------
+    AñadirServicio:
+      type: object
+      properties:
+        IdCliente:
+          type: integer
+        calle:
+          type: string
+        NumeroCasa:
+          type: integer
+        IdZona:
+          type: integer
+        IdTipoServicio:
+          type: integer
+        Fechainicio:
+          type: string
+          format: date
+        FechaFinal:
+          type: string
+          format: date
+          nullable: true
+        costo:
+          type: number
+        Descripcion:
+          type: string
+
+    ListarServicio:
+      type: object
+      properties:
+        IdServicio:
+          type: integer
+        Cliente:
+          type: string
+        Direccion:
+          type: string
+        TipoServicio:
+          type: string
+        FechaInicio:
+          type: string
+          format: date
+        FechaFinal:
+          type: string
+          format: date
+          nullable: true
+        costo:
+          type: number
+
+    InfoServicio:
+      type: object
+      properties:
+        IdServicio:
+          type: integer
+        NombreEmpresa:
+          type: string
+        NombreCliente:
+          type: string
+        Contacto:
+          type: string
+          nullable: true
+        NumeroCasa:
+          type: integer
+        Calle:
+          type: string
+        Zona:
+          type: string
+        TipoServicio:
+          type: string
+        FechaInicio:
+          type: string
+          format: date
+        FechaFinal:
+          type: string
+          format: date
+          nullable: true
+        Costo:
+          type: number
+        Descripcion:
+          type: string
+          nullable: true
+        Create_at:
+          type: string
+          format: date-time
+
+    AsignarUsuariosServicios:
+      type: object
+      properties:
+        idUsuario:
+          type: integer
+        IdServicio:
+          type: integer
+        idHorario:
+          type: integer
+        idDiasLaborales:
+          type: integer
+        HoraDeEntrada:
+          type: string
+          nullable: true
+        HoraDeSalida:
+          type: string
+          nullable: true
+        DiasLaborales:
+          type: string
+          nullable: true
+
+    AsignarMaquinariaServicios:
+      type: object
+      properties:
+        IdServicio:
+          type: integer
+        IdMaquinaria:
+          type: integer
+        CantidadMaquinaria:
+          type: integer
+        DescripcionMaquinaria:
+          type: string
+
+    AsignarRecursoServicios:
+      type: object
+      properties:
+        idServicio:
+          type: integer
+        IdRecurso:
+          type: integer
+        CantidadRecursos:
+          type: integer
+
+    HorarioDTO:
+      type: object
+      properties:
+        idhorario:
+          type: integer
+        horaEntrada:
+          type: string
+        horaSalida:
+          type: string
+
+    AddServicioTerminado:
+      type: object
+      properties:
+        idServicio:
+          type: integer
+        IdSatidfaccion:
+          type: integer
+        Comentarios:
+          type: string
+
+    ListarServicioTerminado:
+      type: object
+      properties:
+        IdServicioTerminado:
+          type: integer
+        NombreCliente:
+          type: string
+        NomnreEmpresa:
+          type: string
+
+    InfoServicioTerminado:
+      type: object
+      properties:
+        IdServicioTerminado:
+          type: integer
+        NombreCliente:
+          type: string
+        NombreEmpresa:
+          type: string
+        NIT:
+          type: integer
+        Direccion:
+          type: string
+        TipoServicio:
+          type: string
+        FechaInicio:
+          type: string
+          format: date
+        FechaFinal:
+          type: string
+          format: date
+          nullable: true
+        Costo:
+          type: number
+        Descripcion:
+          type: string
+          nullable: true
+        Satisfaccion:
+          type: string
+        Comentarios:
+          type: string
+          nullable: true
+
+    # ----------------------------------------------------------------------------
+    # Maquinaria
+    # ----------------------------------------------------------------------------
+    ListarMaquinaria:
+      type: object
+      properties:
+        IdMaquinaria:
+          type: integer
+        NombreMaquinaria:
+          type: string
+        CodigoInventario:
+          type: string
+        TipoMaquinaria:
+          type: string
+
+    InfoMaquinaria:
+      type: object
+      properties:
+        IdMaquinaria:
+          type: integer
+        NombreMaquinaria:
+          type: string
+        CodigoInventario:
+          type: string
+        Provedor:
+          $ref: '#/components/schemas/ProvedorInfo'
+        TipoMaquinaria:
+          type: string
+        EstadoCalidad:
+          type: string
+        Marca:
+          $ref: '#/components/schemas/MaquinariaMarca'
+        Descripcion:
+          type: string
+          nullable: true
+
+    ProvedorInfo:
+      type: object
+      properties:
+        Nombre:
+          type: string
+        Empresa:
+          type: string
+        NIT:
+          type: integer
+
+    MaquinariaMarca:
+      type: object
+      properties:
+        NombreMarca:
+          type: string
+        Pais:
+          type: string
+
+    AgregarMaquinaria:
+      type: object
+      properties:
+        NombreMaquinaria:
+          type: string
+        CodigoInv:
+          type: string
+        IdProvedor:
+          type: integer
+        TipoMaquinaria:
+          type: integer
+        EstadoCalidad:
+          type: integer
+        IdMarcaMaquinaria:
+          type: integer
+        Descripcion:
+          type: string
+
+    AgragarMarcaMaquinaria:
+      type: object
+      properties:
+        IdPais:
+          type: integer
+        NombreMarca:
+          type: string
+
+    MostrarMarcas:
+      type: object
+      properties:
+        IdMarca:
+          type: integer
+        Pais:
+          type: string
+        NombreMarca:
+          type: string
+
+    Estado:
+      type: object
+      properties:
+        IdEstado:
+          type: integer
+        estado:
+          type: string
+
+    InfoResuminaMaquinara:
+      type: object
+      properties:
+        NombreMAquinaria:
+          type: string
+        Marca:
+          type: string
+        Descripcion:
+          type: string
+          nullable: true
+
+    AddManteniminetoMaquinaria:
+      type: object
+      properties:
+        IdMaquinaria:
+          type: integer
+        FechaMantenimiento:
+          type: string
+          format: date
+        Descripcion:
+          type: string
+        Costo:
+          type: number
+
+    InfoManteniminto:
+      type: object
+      properties:
+        IdMantenimiento:
+          type: integer
+        FechaMantenimiento:
+          type: string
+          format: date
+        Descripcion:
+          type: string
+          nullable: true
+        Costo:
+          type: number
+        IdMaquinaria:
+          type: integer
+        NombreMaquinaria:
+          type: string
+
+    ListarManteniminto:
+      type: object
+      properties:
+        IdMantenimiento:
+          type: integer
+        Costo:
+          type: number
+        NombreMaquinaria:
+          type: string
+
+    # ----------------------------------------------------------------------------
+    # Productos
+    # ----------------------------------------------------------------------------
+    AñadirRecurso:
+      type: object
+      properties:
+        IdProvedor:
+          type: integer
+        IdTipo:
+          type: integer
+        nombre:
+          type: string
+        Descripcion:
+          type: string
+          nullable: true
+
+    ListarRecurso:
+      type: object
+      properties:
+        NombreProvedor:
+          type: string
+        EmpresaProvedor:
+          type: string
+        Tipo:
+          type: string
+        Nombre:
+          type: string
+        Descripcion:
+          type: string
+          nullable: true
+
+    EditarNombre:
+      type: object
+      properties:
+        IdRecurso:
+          type: integer
+        nombre:
+          type: string
+
+    EditarDescripcion:
+      type: object
+      properties:
+        IdRecurso:
+          type: integer
+        Descripcion:
+          type: string
+
+    # ----------------------------------------------------------------------------
+    # Proveedores
+    # ----------------------------------------------------------------------------
+    ListarProvedores:
+      type: object
+      properties:
+        id:
+          type: integer
+        Empresa:
+          type: string
+        Nombre:
+          type: string
+        Telefono:
+          type: array
+          items:
+            type: integer
+
+    InformacionProvedor:
+      type: object
+      properties:
+        Empresa:
+          type: string
+        Productos:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdmasNombre'
+          nullable: true
+        Nit:
+          type: integer
+        nombre:
+          type: string
+
+    AñadirProvedor:
+      type: object
+      properties:
+        IDEmpresa:
+          type: integer
+        NIT:
+          type: integer
+        nombre:
+          type: string
+
+    AgregarTelefonoProvedor:
+      type: object
+      properties:
+        telefono:
+          type: integer
+        idDetalle:
+          type: integer
+        Detalle:
+          type: string
+          nullable: true
+        IdProveedor:
+          type: integer
+
+    IdmasNombre:
+      type: object
+      properties:
+        id:
+          type: integer
+        norbre:
+          type: string
+
+    # ----------------------------------------------------------------------------
+    # Trabajadores
+    # ----------------------------------------------------------------------------
+    ListarRoles:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        salario:
+          type: integer
+
+    AñadirTelefonoTrabajadores:
+      type: object
+      properties:
+        telefono:
+          type: integer
+        idUsuario:
+          type: integer
+        idDetalle:
+          type: integer
+          nullable: true
+        Detalle:
+          type: string
+          nullable: true
+
+    VerInfoUsuario:
+      type: object
+      properties:
+        id:
+          type: integer
+        estadocivil:
+          type: string
+        gradoacademico:
+          type: string
+        genero:
+          type: string
+        direccion:
+          type: string
+        Rol:
+          type: string
+        pais:
+          type: string
+        correo:
+          type: string
+        ci:
+          type: integer
+        nombre:
+          type: string
+        fechanacimiento:
+          type: string
+          format: date
+        ServicioAsignado:
+          type: boolean
+
+    # ----------------------------------------------------------------------------
+    # Reportes
+    # ----------------------------------------------------------------------------
+    AddIncidente:
+      type: object
+      properties:
+        descripcion:
+          type: string
+        fecha:
+          type: string
+          format: date
+
+    ListaIncidente:
+      type: object
+      properties:
+        IdIncidente:
+          type: integer
+        NombreCliente:
+          type: string
+        fecha:
+          type: string
+          format: date
+
+    infoIncidente:
+      type: object
+      properties:
+        IdIncidente:
+          type: integer
+        NombreCliente:
+          type: string
+        Empresa:
+          type: string
+        DireccionServicio:
+          type: string
+        ContectoEmergencia:
+          type: string
+          nullable: true
+        Telefonos:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelefonosCliente'
+        TipoServicio:
+          type: string
+        descripcion:
+          type: string
+        fecha:
+          type: string
+          format: date
+
+    TelefonosCliente:
+      type: object
+      properties:
+        telefono:
+          type: integer
+        descripcion:
+          type: string
+
+    AddMemorandum:
+      type: object
+      properties:
+        IdTrabajador:
+          type: integer
+        Descripcion:
+          type: string
+
+    EstadoMaquinaria:
+      type: object
+      properties:
+        IdMaquinaria:
+          type: integer
+        idEstadoCalidad:
+          type: integer
+        descripcion:
+          type: string
+          nullable: true
+
+    ListHistorialEstadoMaquinaria:
+      type: object
+      properties:
+        IdHistorial:
+          type: integer
+        IdMaquinaria:
+          type: integer
+        NombreMaquinaria:
+          type: string
+        CodigoINV:
+          type: string
+        EstadoCalidad:
+          type: string
+        FechaCambio:
+          type: string
+          format: date-time
+        Descripcion:
+          type: string
+          nullable: true
+
+    # ----------------------------------------------------------------------------
+    # Clientes
+    # ----------------------------------------------------------------------------
+    ClienteLogin:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+        contraseña:
+          type: string
+
+    Cliente2Fa:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+        Codigo:
+          type: string
+
+    InfoCleinte:
+      type: object
+      properties:
+        IdCliente:
+          type: integer
+        Empresa:
+          type: string
+        nombreCliente:
+          type: string
+        Direccion:
+          type: string
+        correo:
+          type: string
+          nullable: true
+        contraseña:
+          type: string
+        nit:
+          type: integer
+
+    InfoClienteCorto:
+      type: object
+      properties:
+        IdCliente:
+          type: integer
+        nombreCliente:
+          type: string
+        nit:
+          type: integer
+
+    AñadirCliente:
+      type: object
+      properties:
+        nombreCliente:
+          type: string
+        calle:
+          type: string
+        ncasa:
+          type: integer
+        correo:
+          type: string
+          format: email
+        contraseña:
+          type: string
+        nit:
+          type: integer
+        idEmpresa:
+          type: integer
+          nullable: true
+        empresa:
+          type: string
+          nullable: true
+        idZona:
+          type: integer
+          nullable: true
+        Zona:
+          type: string
+          nullable: true
+
+    # ----------------------------------------------------------------------------
+    # Cobros
+    # ----------------------------------------------------------------------------
+    CrearCobro:
+      type: object
+      properties:
+        IdServicio:
+          type: integer
+        IDQr:
+          type: integer
+        IdCliente:
+          type: integer
+        DiaMesPagar:
+          type: integer
+        Monto:
+          type: number
+          nullable: true
+
+    ListarCobro:
+      type: object
+      properties:
+        IdCobro:
+          type: integer
+        NombreCliente:
+          type: string
+        NombreEmpresa:
+          type: string
+          nullable: true
+        Monto:
+          type: number
+          nullable: true
+        Vigente:
+          type: boolean
+        DiaMesPagar:
+          type: integer
+
+    InfoQr:
+      type: object
+      properties:
+        IDQr:
+          type: integer
+        IdUsuario:
+          type: integer
+        NombreUsuario:
+          type: string
+        FechaEmitida:
+          type: string
+          format: date-time
+        FechaExpiracion:
+          type: string
+          format: date-time
+        Descripcion:
+          type: string
+          nullable: true
+
+    InfoCobro:
+      type: object
+      properties:
+        IdCobro:
+          type: integer
+        NomnreCliente:
+          type: string
+        NombreEmpresa:
+          type: string
+        Monto:
+          type: number
+          nullable: true
+        Vigente:
+          type: boolean
+        DiaMesPagar:
+          type: integer
+        Nit:
+          type: integer
+        TipoServicio:
+          type: string
+        InfoQrCobro:
+          $ref: '#/components/schemas/InfoQr'
+          nullable: true
+
+    RegistrarPago:
+      type: object
+      properties:
+        IdCobro:
+          type: integer
+        Descripcion:
+          type: string
+          nullable: true
+
+    ListarPago:
+      type: object
+      properties:
+        IdPago:
+          type: integer
+        FechaPago:
+          type: string
+          format: date-time
+        Descripcion:
+          type: string
+          nullable: true
+
+    CrearQr:
+      type: object
+      properties:
+        Descripcion:
+          type: string
+        imgQr:
+          type: string
+          format: binary
+        FechaExpiracionQr:
+          type: string
+          format: date-time
+
+    ListarQr:
+      type: object
+      properties:
+        IdQr:
+          type: integer
+        Descripcion:
+          type: string
+          nullable: true
+        FechaEmitida:
+          type: string
+          format: date-time
+
+    PagoRealizado:
+      type: object
+      properties:
+        IdCliente:
+          type: integer
+        IdCobro:
+          type: integer
+
+    # ----------------------------------------------------------------------------
+    # Catálogos
+    # ----------------------------------------------------------------------------
+    CatalogoDTO:
+      type: object
+      properties:
+        Id:
+          type: integer
+        Detalle:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Datos inválidos o error de validación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: No autenticado (cookie token_sesion ausente o inválida)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: No autorizado (rol insuficiente)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

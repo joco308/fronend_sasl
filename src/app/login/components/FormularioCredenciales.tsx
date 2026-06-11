@@ -3,11 +3,10 @@
 import { useState }          from 'react'
 import InputCampo            from '@/components/InputCampo'
 import BotonPrincipal        from '@/components/BotonPrincipal'
-import OpcionesFormulario    from './OpcionesFormulario'
 import Link from 'next/link'
 
 interface Props {
-  onSubmit:  (usuario: string, contraseña: string, recordarme: boolean) => Promise<void>
+  onSubmit:  (usuario: string, contraseña: string) => Promise<void>
   cargando:  boolean
   error:     string | null
 }
@@ -15,11 +14,10 @@ interface Props {
 export default function FormularioCredenciales({ onSubmit, cargando, error }: Props) {
   const [usuario,    setUsuario]    = useState('')
   const [contraseña, setContraseña] = useState('')
-  const [recordarme, setRecordarme] = useState(false)
 
   const manejarEnvio = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit(usuario, contraseña, recordarme)
+    await onSubmit(usuario, contraseña)
   }
 
   return (
@@ -50,8 +48,6 @@ export default function FormularioCredenciales({ onSubmit, cargando, error }: Pr
         required
         disabled={cargando}
       />
-
-      <OpcionesFormulario recordarme={recordarme} onChange={setRecordarme} />
 
       {error && <p className="login-error">{error}</p>}
 

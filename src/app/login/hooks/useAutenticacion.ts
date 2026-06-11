@@ -23,15 +23,14 @@ export function useAutenticacion() {
   const verificarCredenciales = async (
     usuario:    string,
     contraseña: string,
-    recordarme: boolean,
   ) => {
     setEstado((e) => ({ ...e, cargando: true, error: null }))
 
     try {
-      const respuesta = await fetch('/api/auth/login', {
+      const respuesta = await fetch('http://localhost:5112/Api/Usuarios/solicitar-2fa', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ usuario, contraseña, recordarme }),
+        body:    JSON.stringify({ usuario, contraseña }),
       })
 
       const datos = await respuesta.json()
@@ -60,7 +59,7 @@ export function useAutenticacion() {
     setEstado((e) => ({ ...e, cargando: true, error: null }))
 
     try {
-      const respuesta = await fetch('/api/auth/verificar', {
+      const respuesta = await fetch('http://localhost:5112/Api/Usuarios/verificar-2fa', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ codigo }),
