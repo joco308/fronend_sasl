@@ -7,32 +7,26 @@ function getRoleFromToken(token: string) {
       Buffer.from(token.split('.')[1], 'base64').toString()
     )
     return payload.rol
+      ?? payload.role
+      ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
   } catch {
     return null
   }
 }
 
 export function middleware(request: NextRequest) {
-  const token = request.cookies.get('token')?.value
+  const token = request.cookies.get('token_sesion')?.value
   const { pathname } = request.nextUrl
 
   if (pathname === '/login') {
-    if (token) {
-      const rol = getRoleFromToken(token)
-      return NextResponse.redirect(new URL(`/${rol}`, request.url))
+    if (token && getRoleFromToken(token)) {
+      return NextResponse.redirect(new URL('/Administrador', request.url))
     }
     return NextResponse.next() 
   }
 
-  
-  if (!token) {
+  if (!token || !getRoleFromToken(token)) {
     return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  const rol = getRoleFromToken(token)
-
-  if (!pathname.startsWith(`/${rol}`)) {
-    return NextResponse.redirect(new URL(`/${rol}`, request.url))
   }
 
   return NextResponse.next()
@@ -41,10 +35,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/admin/:path*',
-    '/gerente/:path*',
-    '/trabajador/:path*',
-    '/cliente/:path*',
+    '/Administrador/:path*',
     '/login/auth'
   ],
 }

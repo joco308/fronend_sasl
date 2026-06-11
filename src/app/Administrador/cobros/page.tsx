@@ -1,0 +1,24 @@
+import { cookies } from 'next/headers'
+import { CobrosService } from '@/lib/api/cobros.service'
+import CobrosClient from './components/CobrosClient'
+import EstadoError from '../components/EstadoError'
+import type { ListarCobro } from '@/lib/api/types'
+
+export const dynamic = 'force-dynamic'
+
+export default async function PaginaCobros() {
+  const cookieStore = await cookies()
+  const tokenSesion = cookieStore.get('token_sesion')?.value ?? ''
+  let datos: ListarCobro[] = []
+  let error = false
+
+  try {
+    datos = await CobrosService.listar(tokenSesion)
+  } catch {
+    error = true
+  }
+
+  if (error) return <EstadoError mensaje="No se pudieron cargar los cobros." />
+
+  return <CobrosClient cobros={datos} />
+}

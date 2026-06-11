@@ -1,6 +1,6 @@
 'use client'
 
-import { useState }    from 'react'
+import { useRef, useState }    from 'react'
 import { useRouter }   from 'next/navigation'
 
 type Paso = 'credenciales' | 'doble-factor'
@@ -14,6 +14,8 @@ interface EstadoAuth {
 export function useAutenticacion() {
   const router = useRouter()
 
+  const correoRef = useRef('')
+
   const [estado, setEstado] = useState<EstadoAuth>({
     paso:     'credenciales',
     cargando: false,
@@ -21,16 +23,17 @@ export function useAutenticacion() {
   })
 
   const verificarCredenciales = async (
-    usuario:    string,
-    contraseña: string,
+    correo:    string,
+    password: string,
   ) => {
+    correoRef.current = correo
     setEstado((e) => ({ ...e, cargando: true, error: null }))
 
     try {
       const respuesta = await fetch('http://localhost:5112/Api/Usuarios/solicitar-2fa', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ usuario, contraseña }),
+        body:    JSON.stringify({ correo, password }),
       })
 
       const datos = await respuesta.json()
@@ -62,7 +65,8 @@ export function useAutenticacion() {
       const respuesta = await fetch('http://localhost:5112/Api/Usuarios/verificar-2fa', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ codigo }),
+        body:    JSON.stringify({ email: correoRef.current, codigoIngresado: codigo }),
+        credentials: 'include',
       })
 
       const datos = await respuesta.json()
@@ -76,8 +80,7 @@ export function useAutenticacion() {
         return
       }
 
-      /* Código correcto → redirigir según rol */
-      router.push(datos.redireccion ?? '/admin')
+      router.push('/Administrador')
     } catch {
       setEstado((e) => ({
         ...e,

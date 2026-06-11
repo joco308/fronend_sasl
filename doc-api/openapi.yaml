@@ -352,6 +352,186 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /Api/Usuarios/Capacitaciones:
+    post:
+      tags:
+        - Usuarios
+      summary: Agrega una nueva capacitación
+      operationId: crearCapacitacion
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirCapasitacion'
+      responses:
+        '201':
+          description: Capacitación creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapacitacionRespuestaDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    get:
+      tags:
+        - Usuarios
+      summary: Lista todas las capacitaciones
+      operationId: listarCapacitaciones
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de capacitaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarCapasitaciones'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/Capacitaciones/inscribir:
+    post:
+      tags:
+        - Usuarios
+      summary: Inscribe un usuario a una capacitación
+      operationId: inscribirUsuarioCapacitacion
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PonerUsuarioCapasitacion'
+      responses:
+        '201':
+          description: Usuario inscrito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioCapacitacionRespuestaDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/Capacitaciones/{id}:
+    get:
+      tags:
+        - Usuarios
+      summary: Muestra la información detallada de una capacitación
+      operationId: infoCapacitacion
+      security:
+        - PersonalAutorizado: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Información de la capacitación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoCapasitacion'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/Uniformes:
+    post:
+      tags:
+        - Usuarios
+      summary: Agrega un nuevo uniforme
+      operationId: crearUniforme
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AñadirUniforme'
+      responses:
+        '201':
+          description: Uniforme creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UniformeRespuestaDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    get:
+      tags:
+        - Usuarios
+      summary: Lista todos los uniformes
+      operationId: listarUniformes
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de uniformes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListarUniformes'
+
+  /Api/Usuarios/Uniformes/asignar:
+    post:
+      tags:
+        - Usuarios
+      summary: Asigna un uniforme a un empleado
+      operationId: asignarUniforme
+      security:
+        - PersonalAutorizado: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignarUniformeEmpleado'
+      responses:
+        '201':
+          description: Uniforme asignado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsignacionUniformeRespuestaDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /Api/Usuarios/Uniformes/asignaciones:
+    get:
+      tags:
+        - Usuarios
+      summary: Lista las asignaciones de uniformes
+      operationId: listarAsignacionesUniformes
+      security:
+        - PersonalAutorizado: []
+      responses:
+        '200':
+          description: Lista de asignaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuariosUniformes'
+
   # ==============================================================================
   # SERVICIOS
   # ==============================================================================
@@ -1158,27 +1338,45 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /Api/Reportes/memorandums:
-    post:
-      tags:
-        - Reportes
-      summary: Agrega un memorandum
-      operationId: crearMemorandum
-      security:
-        - PersonalAutorizado: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AddMemorandum'
-      responses:
-        '201':
-          description: Memorandum creado
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
+   /Api/Reportes/memorandums:
+     get:
+       tags:
+         - Reportes
+       summary: Lista todos los memorandums
+       operationId: listarMemorandums
+       security:
+         - PersonalAutorizado: []
+       responses:
+         '200':
+           description: Lista de memorandums
+           content:
+             application/json:
+               schema:
+                 type: array
+                 items:
+                   $ref: '#/components/schemas/MemorandoDatos'
+         '404':
+           $ref: '#/components/responses/NotFound'
+     post:
+       tags:
+         - Reportes
+       summary: Agrega un memorandum
+       operationId: crearMemorandum
+       security:
+         - PersonalAutorizado: []
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/AddMemorandum'
+       responses:
+         '201':
+           description: Memorandum creado
+         '400':
+           $ref: '#/components/responses/BadRequest'
+         '404':
+           $ref: '#/components/responses/NotFound'
 
   /Api/Reportes/memorandums/{id}/pdf:
     get:
@@ -1792,6 +1990,182 @@ components:
           type: string
           format: date
 
+    AñadirCapasitacion:
+      type: object
+      properties:
+        Nombre:
+          type: string
+        Descripcion:
+          type: string
+        Fecha:
+          type: string
+          format: date
+
+    PonerUsuarioCapasitacion:
+      type: object
+      properties:
+        IdUsuario:
+          type: integer
+        IdCapacitacion:
+          type: integer
+        estado:
+          type: string
+
+    ListarCapasitaciones:
+      type: object
+      properties:
+        IdCapacitacion:
+          type: integer
+        Nombre:
+          type: string
+        Descripcion:
+          type: string
+        Fecha:
+          type: string
+          format: date
+        inscritos:
+          type: integer
+
+    usuarioInscrito:
+      type: object
+      properties:
+        IdUsuario:
+          type: integer
+        nombre:
+          type: string
+        estado:
+          type: string
+
+    InfoCapasitacion:
+      type: object
+      properties:
+        IdCapacitacion:
+          type: integer
+        Nombre:
+          type: string
+        Descripcion:
+          type: string
+        Fecha:
+          type: string
+          format: date
+        inscritos:
+          type: array
+          items:
+            $ref: '#/components/schemas/usuarioInscrito'
+
+    CapacitacionRespuestaDto:
+      type: object
+      properties:
+        IdCapacitacion:
+          type: integer
+        Nombre:
+          type: string
+        Descripcion:
+          type: string
+          nullable: true
+        Fecha:
+          type: string
+          format: date
+
+    UsuarioCapacitacionRespuestaDto:
+      type: object
+      properties:
+        IdUsuario:
+          type: integer
+        IdCapacitacion:
+          type: integer
+        Estado:
+          type: string
+
+    AñadirUniforme:
+      type: object
+      properties:
+        NombreUniforme:
+          type: string
+        Talla:
+          type: integer
+        Descripcion:
+          type: string
+
+    ListarUniformes:
+      type: object
+      properties:
+        IdUniforme:
+          type: integer
+        NombreUniforme:
+          type: string
+        Talla:
+          type: integer
+        Descripcion:
+          type: string
+
+    UniformeRespuestaDto:
+      type: object
+      properties:
+        IdUniforme:
+          type: integer
+        NombreUniforme:
+          type: string
+        Talla:
+          type: integer
+        Descripcion:
+          type: string
+          nullable: true
+
+    AsignarUniformeEmpleado:
+      type: object
+      properties:
+        IdUsuario:
+          type: integer
+        IdUniforme:
+          type: integer
+        FechaEntrega:
+          type: string
+          format: date
+        FechaDevolucion:
+          type: string
+          format: date
+        Estado:
+          type: string
+
+    AsignacionUniformeRespuestaDto:
+      type: object
+      properties:
+        IdAsignacionUniforme:
+          type: integer
+        IdUsuario:
+          type: integer
+        IdUniforme:
+          type: integer
+        FechaEntrega:
+          type: string
+          format: date
+        FechaDevolucion:
+          type: string
+          format: date
+          nullable: true
+        Estado:
+          type: string
+
+    UsuariosUniformes:
+      type: object
+      properties:
+        IdAsignacionUniforme:
+          type: integer
+        NombreEmpleado:
+          type: string
+        NombreUniforme:
+          type: string
+        Talla:
+          type: integer
+        FechaEntrega:
+          type: string
+          format: date
+        FechaDevolucion:
+          type: string
+          format: date
+          nullable: true
+
     # ----------------------------------------------------------------------------
     # Servicios
     # ----------------------------------------------------------------------------
@@ -2322,31 +2696,41 @@ components:
           type: string
           format: date
 
-    infoIncidente:
-      type: object
-      properties:
-        IdIncidente:
-          type: integer
-        NombreCliente:
-          type: string
-        Empresa:
-          type: string
-        DireccionServicio:
-          type: string
-        ContectoEmergencia:
-          type: string
-          nullable: true
-        Telefonos:
-          type: array
-          items:
-            $ref: '#/components/schemas/TelefonosCliente'
-        TipoServicio:
-          type: string
-        descripcion:
-          type: string
-        fecha:
-          type: string
-          format: date
+     infoIncidente:
+       type: object
+       properties:
+         IdIncidente:
+           type: integer
+         NombreCliente:
+           type: string
+         Empresa:
+           type: string
+         DireccionServicio:
+           type: string
+         ContectoEmergencia:
+           type: string
+           nullable: true
+         Telefonos:
+           type: array
+           items:
+             $ref: '#/components/schemas/TelefonosCliente'
+         TipoServicio:
+           type: string
+         descripcion:
+           type: string
+         fecha:
+           type: string
+           format: date
+
+     MemorandumsDatos:
+       type: object
+       properties:
+         IdMemorial:
+           type: integer
+         NombreEmpleado:
+           type: string
+         descripcion:
+           type: string
 
     TelefonosCliente:
       type: object

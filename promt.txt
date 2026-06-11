@@ -1,0 +1,289 @@
+La documentación OpenAPI se encuentra en:
+
+@doc-api/openapi.yaml
+
+Debes utilizar esa documentación como única fuente de verdad para:
+
+Endpoints
+DTOs
+Modelos
+Roles
+Permisos
+Request Bodies
+Responses
+Parámetros
+
+También debes utilizar todas las Skills disponibles del proyecto cuando sean aplicables.
+
+Contexto
+
+Estoy desarrollando una aplicación con Next.js.
+
+Ya existe una estructura definida que NO debe modificarse.
+
+Debes integrarte a la arquitectura existente.
+
+Arquitectura obligatoria
+src/
+├── app/
+│   ├── layout.tsx
+│   ├── page.tsx
+│   │
+│   └── Administrador/
+│       ├── page.tsx
+│       │
+│       ├── components/
+│       ├── hooks/
+│       └── utils/
+│
+├── components/
+├── hooks/
+├── utils/
+├── lib/
+Reglas
+
+NO crear nuevas arquitecturas.
+
+NO mover archivos.
+
+NO duplicar lógica.
+
+NO colocar lógica de negocio dentro de componentes visuales.
+
+NO realizar llamadas HTTP directamente desde componentes.
+
+Si necesitas crear nuevos archivos:
+
+Componentes exclusivos del Administrador → app/Administrador/components
+Hooks exclusivos del Administrador → app/Administrador/hooks
+Utilidades exclusivas del Administrador → app/Administrador/utils
+Componentes reutilizables globalmente → src/components
+Hooks reutilizables globalmente → src/hooks
+Utilidades reutilizables globalmente → src/utils
+
+Objetivo
+
+Construir un Dashboard Administrativo completo para usuarios con permisos:
+
+PersonalAutorizado
+
+según la definición de OpenAPI.
+
+La documentación indica que este rol corresponde a:
+
+Administrador
+Gerente
+
+Por lo tanto todo el dashboard debe asumir que el usuario ya está autenticado y posee dicho permiso.
+
+Diseño
+
+Antes de implementar:
+
+Analizar las páginas existentes.
+Detectar colores principales.
+Detectar sistema de espaciados.
+Detectar tipografías.
+Detectar componentes reutilizables.
+Detectar estilos de tablas.
+Detectar estilos de formularios.
+
+El dashboard debe mantener exactamente la misma identidad visual.
+
+No introducir nuevas paletas de colores.
+
+No introducir nuevos sistemas de diseño.
+
+Estructura del Dashboard
+
+Crear una experiencia profesional tipo panel administrativo.
+
+Sidebar
+
+Generar navegación para:
+
+Dashboard
+Usuarios
+Servicios
+Maquinaria
+Productos
+Proveedores
+Trabajadores
+Reportes
+Cobros
+Catálogos
+
+utilizando exclusivamente módulos detectados en OpenAPI.
+
+Header
+
+Mostrar:
+
+Usuario autenticado
+Rol
+Avatar
+Logout
+Dashboard Principal
+
+Construir tarjetas de resumen utilizando datos reales de la API.
+
+Ejemplos:
+
+Total Usuarios
+Total Servicios
+Total Maquinaria
+Total Proveedores
+Total Trabajadores
+Cobros pendientes
+Reportes recientes
+
+Utilizar endpoints reales.
+
+No inventar métricas.
+
+Integración API
+
+Analizar completamente OpenAPI.
+
+Detectar automáticamente:
+
+Usuarios
+/Api/Usuarios
+/Api/Usuarios/nuevoUsuario
+/Api/Usuarios/{ci}/rol
+/Api/Usuarios/{ci}/direccion
+
+Implementar:
+
+Listado
+Creación
+Edición
+Cambio de rol
+Gestión de información
+Servicios
+/Api/Servicios
+/Api/Servicios/Nuevo
+/Api/Servicios/{id}
+/Api/Servicios/Asignar-empleado
+/Api/Servicios/asignar-maquinaria
+/Api/Servicios/asignar-recurso
+/Api/Servicios/exportar-csv
+
+Implementar:
+
+Listado
+Creación
+Vista detalle
+Asignaciones
+Exportación
+Maquinaria
+/Api/Maquinaria
+/Api/Maquinaria/{id}
+/Api/Maquinaria/mantenimiento
+
+Implementar:
+
+Inventario
+Detalle
+Historial
+Mantenimientos
+Productos
+/Api/Productos
+
+Implementar:
+
+Gestión completa de productos
+Proveedores
+/Api/Proveedores
+
+Implementar:
+
+Listado
+Detalle
+Edición
+Trabajadores
+/Api/Trabajadores
+
+Implementar:
+
+Gestión de personal
+Roles
+Teléfonos
+Exportación
+Reportes
+/Api/Reportes
+
+Implementar:
+
+Incidentes
+Memorándums
+Estado de maquinaria
+Exportaciones
+Cobros
+/Api/Cobros
+
+Implementar:
+
+Gestión de cobros
+Pagos
+QR
+Notificaciones
+Catálogos
+/Api/Catalogos/{nombre}
+
+Implementar vistas reutilizables para catálogos dinámicos. ahi puedes sacar el id de muchas cosas ya que varias tablas utilizan sundominios y eso va de ahi, entonces para mostrar algunas cosas ahi estan los id de los atributos
+
+Organización del código
+
+Utilizar:
+
+src/lib
+
+para:
+
+Cliente HTTP
+Servicios API
+Manejo de errores
+Configuración de peticiones
+
+Crear una capa de servicios desacoplada.
+
+Ejemplo:
+
+src/lib/api/
+usuarios.service.ts
+servicios.service.ts
+maquinaria.service.ts
+reportes.service.ts
+Calidad
+
+Aplicar:
+
+las Skills que tienes
+
+TypeScript estricto
+Componentes reutilizables
+React Hooks
+Server Components cuando tenga sentido
+Client Components solo cuando sean necesarios
+Estados de carga
+Manejo de errores
+Empty states
+Skeleton loaders
+Prohibiciones
+
+Nunca inventes:
+
+Endpoints
+DTOs
+Campos
+Propiedades
+Responses
+Roles
+Permisos
+
+Todo debe derivarse directamente del OpenAPI.
+
+Si falta información, detente y repórtalo.
+
+No asumas comportamientos.
